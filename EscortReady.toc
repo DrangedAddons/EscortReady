@@ -7,7 +7,7 @@
 ## X-DrangedAddons-Games: _forever_
 ## SavedVariables: EscortReadyDB
 ## SavedVariablesPerCharacter: EscortReadyCharDB
-## IconTexture: Interface\Icons\Ability_Hunter_Pathfinding
+## IconTexture: Interface\AddOns\EscortReady\icon
 
 Escorts.lua
 Theme.lua
