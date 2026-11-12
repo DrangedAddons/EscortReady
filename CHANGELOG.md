@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0
+
+- Catches escorts Questie doesn't know (Forever's own quests, like Rescue Roundup):
+  - the quest objective saying "escort", "safely to", "lead ... to safety" and the like;
+  - the game's own escort tag, read directly;
+  - learning: when the game asks you to join a party member's quest, that quest is remembered as an escort for next time, and passed to the group.
+- `/er add` with no ID marks the quest page you opened last as an escort.
+- `/er log` lists the last quest pages opened and why each was or wasn't treated as an escort (also saved for a closer look after /reload).
+
 ## 0.3.0
 
 - Party members who have already completed the escort are marked ready automatically, with "already completed" next to their name. They can still click Not ready if they need the NPC for something else.

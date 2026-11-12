@@ -83,6 +83,36 @@ local function QuestieModule()
   return nil -- not cached: Questie may still be loading
 end
 
+local function Plain(v)
+  if v == nil or (issecretvalue and issecretvalue(v)) then return nil end
+  return v
+end
+
+-- The open quest page's title and text, when the page shows quest qid. Forever has quests
+-- Questie doesn't know (Rescue Roundup), and these are what's left to go on.
+local function PageText(qid)
+  local ok, open = pcall(GetQuestID)
+  if not ok or Plain(open) ~= qid then return nil end
+  local function Read(fn)
+    if type(fn) ~= "function" then return "" end
+    local okr, v = pcall(fn)
+    v = okr and Plain(v)
+    return type(v) == "string" and v or ""
+  end
+  return Read(GetTitleText), Read(GetObjectiveText), Read(GetQuestText)
+end
+ER.PageText = PageText
+
+-- Words that only show up in an escort's objective. Checked against the objective text only
+-- (not the story text, which says "protect" and "lead" for all sorts of quests).
+local OBJECTIVE_WORDS = { "escort", "safely to", "safely back", "lead .- to safety", "lead .- out of", "protect .- while", "keep .- alive" }
+
+function ER.LearnKey(title)
+  title = Plain(title)
+  if type(title) ~= "string" or title == "" then return nil end
+  return title:lower():gsub("^%s+", ""):gsub("%s+$", "")
+end
+
 -- Returns true/false plus the source that decided it.
 function ER.IsEscort(qid)
   if type(qid) ~= "number" or qid <= 0 then return false end
@@ -90,6 +120,22 @@ function ER.IsEscort(qid)
   if db and db.never[qid] then return false, "you marked it not an escort" end
   if db and db.always[qid] then return true, "your list" end
   if KNOWN[qid] then return true, "known escort" end
+  if db and db.learnedIds[qid] then return true, "seen as a party escort before" end
+
+  local title, objective = PageText(qid)
+  local key = ER.LearnKey(title)
+  if db and key and db.learned[key] then return true, "seen as a party escort before" end
+  if objective and objective ~= "" then
+    local low = objective:lower()
+    for _, w in ipairs(OBJECTIVE_WORDS) do
+      if low:find(w) then return true, "the objective says \"" .. w:gsub("%.%-", "...") .. "\"" end
+    end
+  end
+
+  if C_QuestLog and C_QuestLog.GetQuestTagInfo then
+    local ok, info = pcall(C_QuestLog.GetQuestTagInfo, qid)
+    if ok and type(info) == "table" and Plain(info.tagID) == ESCORT_TAG then return true, "the game's escort tag" end
+  end
 
   local mod = QuestieModule()
   if mod then

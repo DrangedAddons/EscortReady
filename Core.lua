@@ -352,6 +352,10 @@ local function OnMessage(msg, sender)
   if not qid then return end
   local s = ER.session
 
+  if kind == "L" then
+    if b and b ~= "" then ER.Learn(b, true) end
+    return
+  end
   if s and s.test and not s.live then ER.Cancel(true); s = nil end -- a real message beats a local test
   if kind == "Q" then
     if s and s.qid == qid and s.leader ~= sender then return end -- someone else got there first
@@ -397,7 +401,55 @@ end
 ---------------------------------------------------------------------------
 local GO_WORDS = { "ready", "let's go", "lets go", "begin", "start", "lead the way", "go ahead" }
 
-local function OnAcceptConfirm()
+-- The game asks the party to join only for party-accept quests, which is what escorts are.
+-- So the prompt itself teaches us the quest, by title (the event gives no ID). Shared with
+-- the group so everyone's copy learns it too.
+function ER.Learn(title, quiet)
+  local key = ER.LearnKey(title)
+  if not key or ER.db.learned[key] then return end
+  ER.db.learned[key] = true
+  if not quiet then
+    Print("Learned %s as an escort. It'll be held for a ready check from now on.", title)
+    ER.Send(("L^0^%s"):format((title:gsub("%^", ""))))
+  end
+end
+
+-- Every quest page opened: what was read and what was decided. Kept in EscortReadyDB.log
+-- (last 20) so a missed escort can be looked at after a /reload; /er log prints it.
+function ER.LogDetail()
+  local qid = Plain(GetQuestID())
+  if type(qid) ~= "number" then return end
+  ER.lastDetailQid = qid
+  local title, objective = ER.PageText(qid)
+  local yes, why = ER.IsEscort(qid)
+  local tag
+  if C_QuestLog and C_QuestLog.GetQuestTagInfo then
+    local ok, info = pcall(C_QuestLog.GetQuestTagInfo, qid)
+    if ok and type(info) == "table" then tag = tostring(Plain(info.tagID)) .. " " .. tostring(Plain(info.tagName)) end
+  end
+  local flags, inQuestie = nil, false
+  local qdb = QuestDB or (LibQuestieDB and LibQuestieDB.Quest)
+  if qdb and type(qdb.questFlags) == "function" then
+    local ok, v = pcall(qdb.questFlags, qid)
+    flags = ok and v or nil
+  end
+  if qdb and type(qdb.name) == "function" then
+    local ok, v = pcall(qdb.name, qid)
+    inQuestie = ok and v ~= nil
+  end
+  local log = ER.db.log
+  table.insert(log, 1, {
+    when = date("%Y-%m-%d %H:%M:%S"), qid = qid, title = title, objective = objective and objective:sub(1, 200),
+    group = ER.Channel() or "solo", gate = ER.char.enabled, escort = yes and true or false, why = why,
+    tag = tag, questieFlags = flags, inQuestie = inQuestie,
+  })
+  for i = #log, 21, -1 do log[i] = nil end
+end
+
+local function OnAcceptConfirm(...)
+  local _, title = ...
+  title = Plain(title)
+  if type(title) == "string" then ER.Learn(title) end
   local s = ER.session
   if not (s and s.go and ER.char.autoJoin) then return end
   if not (ER.goUntil and GetTime() < ER.goUntil) then return end
@@ -454,6 +506,9 @@ f:SetScript("OnEvent", function(_, event, ...)
     local db, char = EscortReadyDB, EscortReadyCharDB
     db.always = db.always or {}
     db.never = db.never or {}
+    db.learned = db.learned or {}     -- lower-case title -> true, from the party join prompt
+    db.learnedIds = db.learnedIds or {}
+    db.log = db.log or {}
     if char.enabled == nil then char.enabled = true end
     if char.autoJoin == nil then char.autoJoin = true end
     if char.autoGossip == nil then char.autoGossip = true end
@@ -468,6 +523,7 @@ f:SetScript("OnEvent", function(_, event, ...)
     if ER.session and not ER.session.roster and not ER.Channel() then ER.Cancel(true) end
     ER.Refresh()
   elseif event == "QUEST_DETAIL" then
+    ER.LogDetail()
     ER.OnQuestDetail()
   elseif event == "QUEST_FINISHED" then
     ER.HideGate()
@@ -484,7 +540,7 @@ f:SetScript("OnEvent", function(_, event, ...)
       C_Timer.After(3, function() if ER.session == s then ER.Cancel(true) end end)
     end
   elseif event == "QUEST_ACCEPT_CONFIRM" then
-    OnAcceptConfirm()
+    OnAcceptConfirm(...)
   elseif event == "GOSSIP_SHOW" then
     OnGossip()
   end
@@ -530,8 +586,9 @@ SlashCmdList.ESCORTREADY = function(input)
     char.scale = math.max(0.5, math.min(3, tonumber(arg)))
     ER.ApplyScale()
     Print("Window scale %.2f.", char.scale)
-  elseif (cmd == "add" or cmd == "not" or cmd == "reset") and tonumber(arg) then
-    local qid = tonumber(arg)
+  elseif (cmd == "add" or cmd == "not" or cmd == "reset") and (tonumber(arg) or (arg == "" and ER.lastDetailQid)) then
+    -- no ID: the quest page opened last
+    local qid = tonumber(arg) or ER.lastDetailQid
     db.always[qid] = cmd == "add" or nil
     db.never[qid] = cmd == "not" or nil
     local yes, why = ER.IsEscort(qid)
@@ -540,6 +597,14 @@ SlashCmdList.ESCORTREADY = function(input)
     local qid = tonumber(arg)
     local yes, why = ER.IsEscort(qid)
     Print("%s (%d): %s%s.", ER.QuestTitle(qid), qid, yes and "escort" or "not an escort", why and (" - " .. why) or "")
+  elseif cmd == "log" then
+    local log = db.log
+    if #log == 0 then Print("No quest pages seen yet.") end
+    for i = 1, math.min(5, #log) do
+      local e = log[i]
+      Print("%s  %s (%d)  %s  %s%s", e.when, e.title or "?", e.qid, e.group,
+        e.escort and "|cff40ff40escort|r" or "|cffff4040not an escort|r", e.why and (" - " .. e.why) or "")
+    end
   elseif cmd == "test" then
     ER.Test(arg ~= "member")
   elseif cmd == "config" or cmd == "settings" then
@@ -554,6 +619,8 @@ SlashCmdList.ESCORTREADY = function(input)
     Print("/er join - join the escort automatically once you ticked ready")
     Print("/er gossip - after starting, pick the NPC's \"I'm ready\" line if there's exactly one")
     Print("/er check <questID> | add <id> | not <id> | reset <id>")
+    Print("/er add (no ID) - mark the quest page you opened last as an escort")
+    Print("/er log - the last quest pages opened and what was decided")
     Print("/er show | cancel | scale <n> | config")
     Print("/er test - test check as the starter (sent to your group if you're in one)")
     Print("/er test member - local test as a party member, with dummies")
