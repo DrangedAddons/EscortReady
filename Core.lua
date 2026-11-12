@@ -315,16 +315,17 @@ function ER.Test(asStarter)
   for _, n in ipairs(roster) do s.members[n] = { state = "wait", t = GetTime() } end
   s.members[leader].state = "ready"
   s.members[me].status = ER.MyStatus(TEST_QID)
-  if not asStarter then s.members[me].state = "seen" end
+  if not asStarter then
+    s.members[me].state = s.members[me].status == "done" and "ready" or "seen"
+  end
   ER.session = s
 
-  -- scripted replies: name, delay, state, status
+  -- scripted replies: name, delay, state, status. A "done" member is ready at once.
   local script = asStarter and {
-    { "Dummyone", 1, "seen", "none" }, { "Dummytwo", 1.5, "seen", "have" },
-    { "Dummyone", 3, "ready", "none" }, { "Dummytwo", 4, "notready", "have" },
-    { "Dummytwo", 8, "ready", "have" },
+    { "Dummyone", 1, "seen", "none" }, { "Dummytwo", 1.5, "ready", "done" },
+    { "Dummyone", 3, "notready", "none" }, { "Dummyone", 7, "ready", "none" },
   } or {
-    { "Dummyone", 1, "seen", "done" }, { "Dummyone", 3, "ready", "done" },
+    { "Dummyone", 1, "ready", "done" },
   }
   for _, step in ipairs(script) do
     C_Timer.After(step[2], function()
@@ -360,9 +361,10 @@ local function OnMessage(msg, sender)
     if c == "T" then s.test, s.live = true, true end
     Member(s, sender).state = "ready"
     local me = Member(s, ER.Me())
-    me.state = "seen"
     me.status = ER.MyStatus(qid)
-    ER.Send(("R^%d^seen^%s"):format(qid, me.status))
+    -- already completed: nothing to pick up, so ready from the start (Not ready still works)
+    me.state = me.status == "done" and "ready" or "seen"
+    ER.Send(("R^%d^%s^%s"):format(qid, me.state, me.status))
     ER.ShowWindow()
     pcall(PlaySound, SOUNDKIT and SOUNDKIT.READY_CHECK or 8960, "Master")
     if FlashClientIcon then pcall(FlashClientIcon) end

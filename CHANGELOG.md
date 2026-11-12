@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0
+
+- Party members who have already completed the escort are marked ready automatically, with "already completed" next to their name. They can still click Not ready if they need the NPC for something else.
+
 ## 0.2.0
 
 - Auto-quest addons can no longer start an escort in a group. Questie, RestedXP, Leatrix Plus, EllesmereUI's quest tracker, dialogue addons and anything else that calls `AcceptQuest()` is held back on an escort until the group is ready.

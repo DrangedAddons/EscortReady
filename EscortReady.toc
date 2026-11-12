@@ -2,7 +2,7 @@
 ## Title: EscortReady
 ## Notes: Stops you accepting an escort quest in a group until everyone has handed in and ticked ready. Escort quests are detected through Questie.
 ## Author: Dranged
-## Version: 0.2.0
+## Version: 0.3.0
 ## OptionalDeps: Questie, QuestieDB, EllesmereUI
 ## X-DrangedAddons-Games: _forever_
 ## SavedVariables: EscortReadyDB

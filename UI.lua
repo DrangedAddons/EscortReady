@@ -114,7 +114,7 @@ local STATE_TEXT = {
   wait = GREY .. "...|r",
   noaddon = GREY .. "No addon|r",
 }
-local STATUS_TEXT = { have = "on the quest", done = "done it before", none = "" }
+local STATUS_TEXT = { have = "on the quest", done = "already completed", none = "" }
 
 local function MakeButton(parent, text, w)
   local b = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
@@ -125,7 +125,7 @@ end
 
 local function BuildWindow()
   local f = CreateFrame("Frame", "EscortReadyFrame", UIParent, "BackdropTemplate")
-  f:SetSize(440, 200)
+  f:SetSize(470, 200)
   f:SetPoint("CENTER", 0, 120)
   f:SetFrameStrata("DIALOG")
   f:SetClampedToScreen(true)
@@ -146,14 +146,14 @@ local function BuildWindow()
 
   f.quest = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
   f.quest:SetPoint("TOP", f.header, "BOTTOM", 0, -6)
-  f.quest:SetWidth(400)
+  f.quest:SetWidth(430)
 
   f.by = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   f.by:SetPoint("TOP", f.quest, "BOTTOM", 0, -4)
 
   f.help = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   f.help:SetPoint("TOP", f.by, "BOTTOM", 0, -8)
-  f.help:SetWidth(400)
+  f.help:SetWidth(430)
   f.help:SetText("Hand in your earlier parts and pick up this quest if you want it. "
     .. "Once the escort starts the NPC won't talk to anyone.")
 
@@ -180,7 +180,7 @@ local function BuildWindow()
 
   f.foot = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   f.foot:SetPoint("BOTTOM", 0, 46)
-  f.foot:SetWidth(400)
+  f.foot:SetWidth(430)
 
   f.erTitle = f.header
   for _, b in ipairs({ f.anyway, f.cancel, f.ready, f.notready }) do ER.ThemeRegisterButton(b) end
@@ -273,6 +273,8 @@ local function UpdateWindow()
     win.notready:SetEnabled(st ~= "notready")
     if s.go then
       win.foot:SetText(GREEN .. s.leader .. " started the escort.|r")
+    elseif st == "ready" and mine.status == "done" then
+      win.foot:SetText("You've already completed this, so you're marked ready. Click Not ready if you still need the NPC.")
     elseif st == "ready" then
       win.foot:SetText(ER.char.autoJoin and "You'll join the escort when it starts." or "Ready. Accept the join prompt when it starts.")
     else
