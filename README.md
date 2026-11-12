@@ -10,6 +10,7 @@ Once someone accepts an escort, the NPC starts walking and won't talk to anyone 
 - Clicking it sends a ready check to the group. Everyone with the addon gets a window with Ready / Not ready, plus who's on the quest or has done it before.
 - When everyone is ready, the quest is accepted by itself. If the quest page was closed, it starts the moment you talk to the quest giver again.
 - **Start anyway** starts without everyone, after a Yes on a warning.
+- Auto-quest addons (Questie, RestedXP, Leatrix Plus and anything else calling `AcceptQuest()`) are held back on escorts in a group. Their accept starts the party check instead, and EscortReady accepts once the group is ready.
 - Party members who ticked ready get the game's "join this quest" prompt accepted for them. If the NPC then offers exactly one "I'm ready" / "Let's go" line, it's picked.
 
 ## Escort detection

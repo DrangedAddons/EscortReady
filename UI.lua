@@ -15,9 +15,7 @@ local GREEN, RED, GOLD, GREY = "|cff40ff40", "|cffff4040", "|cffffd100", "|cff90
 local gate
 
 local function AcceptNormally()
-  ER.bypass = true
-  AcceptQuest()
-  ER.bypass = nil
+  ER.RealAccept() -- shift-click: past the block on purpose
 end
 
 local function BuildGate()

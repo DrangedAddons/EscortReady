@@ -179,9 +179,65 @@ function ER.StartEscort()
   ER.HideWindow()
   ER.gossipUntil = GetTime() + ER.GOSSIP_WINDOW
   ER.Send(("G^%d"):format(s.qid))
-  ER.bypass = true
-  AcceptQuest()
-  ER.bypass = nil
+  ER.RealAccept()
+end
+
+---------------------------------------------------------------------------
+-- The block. Auto-quest addons (Questie, RestedXP, Leatrix Plus, EllesmereUI's quest
+-- tracker, dialogue addons...) all call the global AcceptQuest() when a quest page opens.
+-- Swapping the global catches every one of them that looks it up when it runs, which all
+-- the installed ones do. AcceptQuest isn't a protected function, so this is allowed.
+-- In a group, on an escort, nothing accepts until EscortReady says so (ER.RealAccept).
+---------------------------------------------------------------------------
+local origAccept = AcceptQuest
+
+function ER.RealAccept()
+  return origAccept()
+end
+
+local lastBlockMsg = {}
+
+-- The escort quest a call to AcceptQuest() would accept right now, if it must be held.
+local function HeldQuest()
+  local char = ER.char
+  if not (char and char.enabled) or not ER.Channel() then return nil end
+  local qid = Plain(GetQuestID())
+  if type(qid) ~= "number" or qid <= 0 or not ER.IsEscort(qid) then return nil end
+  local s = ER.session
+  if s and s.qid == qid and s.go then return nil end -- already started: let it through
+  return qid
+end
+ER.HeldQuest = HeldQuest
+
+-- Called instead of a real accept. Starts the party check for an escort nobody is checking
+-- yet, so an auto-accept addon gets the same flow as clicking Check party.
+local function Held(qid)
+  local s = ER.session
+  local now = GetTime()
+  if not lastBlockMsg[qid] or now - lastBlockMsg[qid] > 10 then
+    lastBlockMsg[qid] = now
+    Print("Held back accepting %s (an escort) until the group is ready.", ER.QuestTitle(qid))
+  end
+  if not s or s.qid ~= qid then
+    if s and s.mine then ER.Cancel() end
+    if not s or s.mine then
+      local title = Plain(GetTitleText())
+      ER.Begin(qid, type(title) == "string" and title ~= "" and title or nil)
+    end
+  end
+  ER.ShowWindow()
+end
+
+AcceptQuest = function(...)
+  local qid = HeldQuest()
+  if qid then Held(qid); return end
+  return origAccept(...)
+end
+
+-- If the Accept button's click handler is the original function itself (bound in XML),
+-- the global swap doesn't reach it, so the button gets the same check.
+if QuestFrameAcceptButton and QuestFrameAcceptButton:GetScript("OnClick") == origAccept then
+  QuestFrameAcceptButton:SetScript("OnClick", function() AcceptQuest() end)
 end
 
 -- Starts on its own once everyone is ready (or after Start anyway, when the page reopens).

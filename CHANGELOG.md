@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0
+
+- Auto-quest addons can no longer start an escort in a group. Questie, RestedXP, Leatrix Plus, EllesmereUI's quest tracker, dialogue addons and anything else that calls `AcceptQuest()` is held back on an escort until the group is ready.
+- When an auto-accept is held back, the party check starts by itself. Once everyone is ready, or you say Yes to Start anyway, EscortReady accepts the quest.
+- Shift-click on Check party still accepts straight away.
+
 ## 0.1.0
 
 - First version. In a group, an escort quest's Accept button becomes "Check party". It sends a ready check to the group; everyone with the addon gets a window to tick Ready or Not ready.
