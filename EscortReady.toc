@@ -1,0 +1,16 @@
+## Interface: 16001
+## Title: EscortReady
+## Notes: Stops you accepting an escort quest in a group until everyone has handed in and ticked ready. Escort quests are detected through Questie.
+## Author: Dranged
+## Version: 0.1.0
+## OptionalDeps: Questie, QuestieDB, EllesmereUI
+## X-DrangedAddons-Games: _forever_
+## SavedVariables: EscortReadyDB
+## SavedVariablesPerCharacter: EscortReadyCharDB
+## IconTexture: Interface\Icons\Ability_Hunter_Pathfinding
+
+Escorts.lua
+Theme.lua
+Core.lua
+UI.lua
+Settings.lua
