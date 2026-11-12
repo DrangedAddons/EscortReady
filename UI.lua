@@ -308,3 +308,84 @@ function ER.Refresh()
   UpdateGate()
   UpdateWindow()
 end
+
+---------------------------------------------------------------------------
+-- Export box: the found quests as text, selected, ready for Ctrl+C
+---------------------------------------------------------------------------
+local exportWin
+
+local function BuildExport()
+  local f = CreateFrame("Frame", "EscortReadyExport", UIParent, "BackdropTemplate")
+  f:SetSize(520, 340)
+  f:SetPoint("CENTER")
+  f:SetFrameStrata("DIALOG")
+  f:SetClampedToScreen(true)
+  f:SetMovable(true)
+  f:EnableMouse(true)
+  f:RegisterForDrag("LeftButton")
+  f:SetScript("OnDragStart", f.StartMoving)
+  f:SetScript("OnDragStop", f.StopMovingOrSizing)
+  f:SetBackdrop(ER.DEFAULT_BACKDROP)
+  tinsert(UISpecialFrames, "EscortReadyExport")
+
+  local close = CreateFrame("Button", nil, f, "UIPanelCloseButton")
+  close:SetPoint("TOPRIGHT", -6, -6)
+
+  f.header = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+  f.header:SetPoint("TOP", 0, -18)
+  f.header:SetText("Found party event quests")
+  f.erTitle = f.header
+
+  f.help = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  f.help:SetPoint("TOP", f.header, "BOTTOM", 0, -6)
+  f.help:SetWidth(470)
+  f.help:SetText("Ctrl+C to copy, then paste it in Discord or a GitHub issue so these go in the built-in list. "
+    .. "Quests already in the list are left out.")
+
+  local scroll = CreateFrame("ScrollFrame", nil, f, "UIPanelScrollFrameTemplate")
+  scroll:SetPoint("TOPLEFT", 22, -64)
+  scroll:SetPoint("BOTTOMRIGHT", -40, 50)
+  local bg = scroll:CreateTexture(nil, "BACKGROUND")
+  bg:SetPoint("TOPLEFT", -4, 4)
+  bg:SetPoint("BOTTOMRIGHT", 24, -4)
+  bg:SetColorTexture(0, 0, 0, 0.4)
+
+  local edit = CreateFrame("EditBox", nil, scroll)
+  edit:SetMultiLine(true)
+  edit:SetAutoFocus(false)
+  edit:SetFontObject("ChatFontNormal")
+  edit:SetWidth(440)
+  edit:SetScript("OnEscapePressed", function() f:Hide() end)
+  -- read-only: typing puts the export back
+  edit:SetScript("OnTextChanged", function(self, user)
+    if user and f.text then self:SetText(f.text); self:HighlightText() end
+  end)
+  edit:SetScript("OnEditFocusGained", function(self) self:HighlightText() end)
+  scroll:SetScrollChild(edit)
+  f.edit = edit
+
+  local done = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+  done:SetSize(120, 24)
+  done:SetPoint("BOTTOM", 0, 18)
+  done:SetText("Close")
+  done:SetScript("OnClick", function() f:Hide() end)
+  ER.ThemeRegisterButton(done)
+
+  f:Hide()
+  return f
+end
+
+function ER.ShowExport()
+  exportWin = exportWin or BuildExport()
+  local text, count = ER.ExportText()
+  if count == 0 then
+    text = text .. "\n(nothing yet: no quests found beyond the built-in list)"
+  end
+  exportWin.text = text
+  exportWin:SetScale(ER.char.scale or 1)
+  ER.ApplyTheme(exportWin)
+  exportWin:Show()
+  exportWin.edit:SetText(text)
+  exportWin.edit:SetFocus()
+  exportWin.edit:HighlightText()
+end

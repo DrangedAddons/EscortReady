@@ -203,6 +203,22 @@ function ER.BuildSettings()
   t2:SetPoint("LEFT", t1, "RIGHT", 8, 0)
   t2:SetScript("OnClick", function() ER.Test(false) end)
 
+  local found = p:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  found:SetPoint("TOPLEFT", t1, "BOTTOMLEFT", 0, -24)
+  found:SetText("Found quests")
+
+  local foundNote = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  foundNote:SetPoint("TOPLEFT", found, "BOTTOMLEFT", 0, -4)
+  foundNote:SetWidth(560)
+  foundNote:SetJustifyH("LEFT")
+  foundNote:SetText("Party event quests you've found that the built-in list doesn't have yet "
+    .. "(learned from the party join prompt, or marked with /er add). Copy them out and send them "
+    .. "in so everyone gets them in the next version.")
+
+  local ex = Button(p, "Export found quests")
+  ex:SetPoint("TOPLEFT", foundNote, "BOTTOMLEFT", 0, -8)
+  ex:SetScript("OnClick", function() ER.ShowExport() end)
+
   if Settings and Settings.RegisterCanvasLayoutCategory then
     category = Settings.RegisterCanvasLayoutCategory(p, "EscortReady")
     Settings.RegisterAddOnCategory(category)

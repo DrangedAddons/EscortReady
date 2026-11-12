@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0
+
+- Learned quests now get their quest ID, not just the title: from your quest log when you join from the prompt, from the quest page the next time anyone opens it, or from a party member who has it.
+- `/er export` (or Export found quests in the options) opens a box with the quests you've found that aren't in the built-in list yet, ready to copy and paste in Discord or a GitHub issue. No character or realm names in it.
+
 ## 0.5.0
 
 - Covers **party event quests**, not just escorts: fights and anything else where accepting ties up the quest giver. The window, chat and options say "party event quest" now.

@@ -353,7 +353,7 @@ local function OnMessage(msg, sender)
   local s = ER.session
 
   if kind == "L" then
-    if b and b ~= "" then ER.Learn(b, true) end
+    if b and b ~= "" then ER.Learn(b, true, qid > 0 and qid or nil) end
     return
   end
   if s and s.test and not s.live then ER.Cancel(true); s = nil end -- a real message beats a local test
@@ -404,14 +404,81 @@ local GO_WORDS = { "ready", "let's go", "lets go", "begin", "start", "lead the w
 -- The game asks the party to join only for party-accept quests, which is what escorts are.
 -- So the prompt itself teaches us the quest, by title (the event gives no ID). Shared with
 -- the group so everyone's copy learns it too.
-function ER.Learn(title, quiet)
+-- learned[key] = the title as shown; learnedIds[questID] = title. The ID arrives later, from
+-- whichever comes first: QUEST_ACCEPTED after joining from the prompt, a quest page with that
+-- title (ER.LearnId from LogDetail), or a party member's "L" message that carries one.
+function ER.Learn(title, quiet, qid)
   local key = ER.LearnKey(title)
-  if not key or ER.db.learned[key] then return end
-  ER.db.learned[key] = true
-  if not quiet then
+  if not key then return end
+  local db = ER.db
+  local new = not db.learned[key]
+  if new then db.learned[key] = title end
+  if qid and qid > 0 then ER.LearnId(qid, title, quiet) end
+  if new and not quiet then
     Print("Learned %s as a party event quest. It'll be held for a ready check from now on.", title)
-    ER.Send(("L^0^%s"):format((title:gsub("%^", ""))))
+    ER.Send(("L^%d^%s"):format(qid or 0, (title:gsub("%^", ""))))
   end
+end
+
+-- An ID for a learned title. Told to the group once (not when it came from the group),
+-- so their exports carry it too.
+function ER.LearnId(qid, title, quiet)
+  local db = ER.db
+  if type(qid) ~= "number" or qid <= 0 or db.learnedIds[qid] then return end
+  db.learnedIds[qid] = title or ER.QuestTitle(qid)
+  local key = ER.LearnKey(title)
+  if key and not db.learned[key] then db.learned[key] = title end
+  if not quiet then
+    ER.Send(("L^%d^%s"):format(qid, (tostring(db.learnedIds[qid]):gsub("%^", ""))))
+  end
+end
+
+-- Is this quest one we learned by title only? Then record its ID.
+function ER.MatchLearned(qid, title)
+  local key = ER.LearnKey(title)
+  if key and ER.db.learned[key] and not ER.db.learnedIds[qid] then ER.LearnId(qid, title) end
+end
+
+-- The quests this account found that the built-in list doesn't have, as plain lines to paste
+-- into Discord or a GitHub issue. No character, realm or account names in it.
+--   add <id> <title>      marked with /er add
+--   learned <id> <title>  learned from the party join prompt
+--   learned ? <title>     learned, ID not seen yet
+--   not <id> <title>      marked with /er not (a wrong catch)
+function ER.ExportText()
+  local db = ER.db
+  local version = (C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata)(ADDON, "Version") or "?"
+  local lines, count = {}, 0
+  local function Add(kind, qid, title)
+    lines[#lines + 1] = ("%s %s %s"):format(kind, qid and tostring(qid) or "?", title or "")
+    count = count + 1
+  end
+  local function Sorted(t)
+    local ids = {}
+    for id in pairs(t) do if type(id) == "number" then ids[#ids + 1] = id end end
+    table.sort(ids)
+    return ids
+  end
+  for _, id in ipairs(Sorted(db.always)) do
+    if not ER.IsBuiltIn(id) then Add("add", id, ER.QuestTitle(id)) end
+  end
+  local idKeys = {}
+  for _, id in ipairs(Sorted(db.learnedIds)) do
+    local title = type(db.learnedIds[id]) == "string" and db.learnedIds[id] or ER.QuestTitle(id)
+    idKeys[ER.LearnKey(title) or ""] = true
+    if not ER.IsBuiltIn(id) and not db.always[id] then Add("learned", id, title) end
+  end
+  local keys = {}
+  for key in pairs(db.learned) do if not idKeys[key] then keys[#keys + 1] = key end end
+  table.sort(keys)
+  for _, key in ipairs(keys) do
+    local v = db.learned[key]
+    Add("learned", nil, type(v) == "string" and v or key)
+  end
+  for _, id in ipairs(Sorted(db.never)) do Add("not", id, ER.QuestTitle(id)) end
+  table.insert(lines, 1, ("EscortReady %s found quests (%s), %d line%s"):format(
+    version, date("%Y-%m-%d"), count, count == 1 and "" or "s"))
+  return table.concat(lines, "\n"), count
 end
 
 -- Every quest page opened: what was read and what was decided. Kept in EscortReadyDB.log
@@ -421,6 +488,7 @@ function ER.LogDetail()
   if type(qid) ~= "number" then return end
   ER.lastDetailQid = qid
   local title, objective = ER.PageText(qid)
+  ER.MatchLearned(qid, title)
   local yes, why = ER.IsEscort(qid)
   local tag
   if C_QuestLog and C_QuestLog.GetQuestTagInfo then
@@ -530,6 +598,7 @@ f:SetScript("OnEvent", function(_, event, ...)
   elseif event == "QUEST_ACCEPTED" then
     local a, b = ...
     local qid = Plain(b) or Plain(a) -- (questID) on current clients, (logIndex, questID) on old ones
+    if type(qid) == "number" then ER.MatchLearned(qid, ER.QuestTitle(qid)) end -- joined from the prompt
     local s = ER.session
     if s and qid == s.qid then
       if s.mine and not s.go then
@@ -597,6 +666,8 @@ SlashCmdList.ESCORTREADY = function(input)
     local qid = tonumber(arg)
     local yes, why = ER.IsEscort(qid)
     Print("%s (%d): %s%s.", ER.QuestTitle(qid), qid, yes and "party event quest" or "not a party event quest", why and (" - " .. why) or "")
+  elseif cmd == "export" then
+    ER.ShowExport()
   elseif cmd == "log" then
     local log = db.log
     if #log == 0 then Print("No quest pages seen yet.") end
@@ -621,6 +692,7 @@ SlashCmdList.ESCORTREADY = function(input)
     Print("/er check <questID> | add <id> | not <id> | reset <id>")
     Print("/er add (no ID) - mark the quest page you opened last as a party event quest")
     Print("/er log - the last quest pages opened and what was decided")
+    Print("/er export - the quests you found, to copy and send for the built-in list")
     Print("/er show | cancel | scale <n> | config")
     Print("/er test - test check as the starter (sent to your group if you're in one)")
     Print("/er test member - local test as a party member, with dummies")

@@ -30,6 +30,17 @@ No single source flags all of them, so several checks run:
 
 Overrides: `/er add [questID]` (no ID: the quest page you opened last), `/er not <questID>`, `/er reset <questID>`, `/er check <questID>`. `/er log` shows what each recent quest page was decided as, and why.
 
+## Sending in found quests
+
+`/er export` (or **Export found quests** in the options) lists the quests you've found that the built-in list doesn't have yet. Copy it and paste it in Discord or a [GitHub issue](https://github.com/DrangedAddons/EscortReady/issues), and they go in the next version for everyone. One quest per line:
+
+```
+add 77777 Some Quest        you marked it with /er add
+learned 55555 Some Quest    the game sent the party join prompt for it
+learned ? Some Quest        same, but its ID hasn't been seen yet
+not 12345 Some Quest        you marked it with /er not (a wrong catch)
+```
+
 ## Options
 
 Esc > Options > AddOns > EscortReady, or `/er config`. Per character: the gate, auto-join, the start line, window size. With EllesmereUI loaded the window follows its look and font (Window look dropdown).

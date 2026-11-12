@@ -75,6 +75,9 @@ local KNOWN = {
   [96067] = true, -- Rock 'em and Sock 'em: fight Sleebo's robot G45-B4G (Forever)
 }
 
+-- Already shipped in the list above (the export leaves these out).
+function ER.IsBuiltIn(qid) return KNOWN[qid] == true end
+
 local ESCORT_TAG = 84
 local PARTY_ACCEPT = 2
 
