@@ -169,7 +169,7 @@ function ER.StartEscort()
     s.startOnOpen = true
     if not s.toldReopen then
       s.toldReopen = true
-      Print("Everyone's set. Talk to the quest giver again and the escort starts.")
+      Print("Everyone's set. Talk to the quest giver again and the quest starts.")
     end
     ER.Refresh()
     return
@@ -216,7 +216,7 @@ local function Held(qid)
   local now = GetTime()
   if not lastBlockMsg[qid] or now - lastBlockMsg[qid] > 10 then
     lastBlockMsg[qid] = now
-    Print("Held back accepting %s (an escort) until the group is ready.", ER.QuestTitle(qid))
+    Print("Held back accepting %s (a party event quest) until the group is ready.", ER.QuestTitle(qid))
   end
   if not s or s.qid ~= qid then
     if s and s.mine then ER.Cancel() end
@@ -254,7 +254,7 @@ end
 
 -- Start without everyone ready, after a Yes on the warning.
 StaticPopupDialogs.ESCORTREADY_START_ANYWAY = {
-  text = "Not everyone is ready (%s).\n\nStart the escort anyway? The NPC won't talk to anyone until it's over.",
+  text = "Not everyone is ready (%s).\n\nStart the party event quest anyway? The NPC won't talk to anyone until it's over.",
   button1 = YES,
   button2 = NO,
   OnAccept = function()
@@ -290,7 +290,7 @@ local TEST_QID = 309 -- Protecting the Shipment, only for its title
 
 function ER.Test(asStarter)
   if ER.session and not ER.session.test then
-    Print("A real escort check is running. Cancel it first.")
+    Print("A real party check is running. Cancel it first.")
     return
   end
   if ER.session then ER.Cancel() end
@@ -380,14 +380,14 @@ local function OnMessage(msg, sender)
     m.status = c
     -- a late joiner who missed the Q: answer with mine so they see me
   elseif kind == "C" and sender == s.leader then
-    Print("%s cancelled the escort check.", sender)
+    Print("%s cancelled the party check.", sender)
     ER.session = nil
     ER.HideWindow()
   elseif kind == "G" and sender == s.leader then
     s.go = true
     ER.goUntil = GetTime() + 30
     if s.test then
-      Print("Test: %s pressed Start escort.", sender)
+      Print("Test: %s started the quest.", sender)
       C_Timer.After(3, function() if ER.session == s then ER.Cancel(true) end end)
     elseif Member(s, ER.Me()).state ~= "ready" then
       Print("%s started %s.", sender, s.title)
@@ -409,7 +409,7 @@ function ER.Learn(title, quiet)
   if not key or ER.db.learned[key] then return end
   ER.db.learned[key] = true
   if not quiet then
-    Print("Learned %s as an escort. It'll be held for a ready check from now on.", title)
+    Print("Learned %s as a party event quest. It'll be held for a ready check from now on.", title)
     ER.Send(("L^0^%s"):format((title:gsub("%^", ""))))
   end
 end
@@ -552,7 +552,7 @@ C_Timer.NewTicker(1, function()
   if not s then return end
   local now = GetTime()
   if now - s.t0 > ER.TIMEOUT then
-    Print("Escort check for %s timed out.", s.title)
+    Print("Party check for %s timed out.", s.title)
     ER.Cancel()
     return
   end
@@ -575,13 +575,13 @@ SlashCmdList.ESCORTREADY = function(input)
   local char, db = ER.char, ER.db
   if cmd == "on" or cmd == "off" then
     char.enabled = cmd == "on"
-    Print("Escort gate %s.", OnOff(char.enabled))
+    Print("Party event gate %s.", OnOff(char.enabled))
   elseif cmd == "join" then
     char.autoJoin = not char.autoJoin
-    Print("Join the escort when you ticked ready: %s.", OnOff(char.autoJoin))
+    Print("Join the party event quest when you ticked ready: %s.", OnOff(char.autoJoin))
   elseif cmd == "gossip" then
     char.autoGossip = not char.autoGossip
-    Print("Pick the escort's start line after accepting: %s.", OnOff(char.autoGossip))
+    Print("Pick the NPC's start line after accepting: %s.", OnOff(char.autoGossip))
   elseif cmd == "scale" and tonumber(arg) then
     char.scale = math.max(0.5, math.min(3, tonumber(arg)))
     ER.ApplyScale()
@@ -592,34 +592,34 @@ SlashCmdList.ESCORTREADY = function(input)
     db.always[qid] = cmd == "add" or nil
     db.never[qid] = cmd == "not" or nil
     local yes, why = ER.IsEscort(qid)
-    Print("%s (%d): %s%s.", ER.QuestTitle(qid), qid, yes and "escort" or "not an escort", why and (" - " .. why) or "")
+    Print("%s (%d): %s%s.", ER.QuestTitle(qid), qid, yes and "party event quest" or "not a party event quest", why and (" - " .. why) or "")
   elseif cmd == "check" and tonumber(arg) then
     local qid = tonumber(arg)
     local yes, why = ER.IsEscort(qid)
-    Print("%s (%d): %s%s.", ER.QuestTitle(qid), qid, yes and "escort" or "not an escort", why and (" - " .. why) or "")
+    Print("%s (%d): %s%s.", ER.QuestTitle(qid), qid, yes and "party event quest" or "not a party event quest", why and (" - " .. why) or "")
   elseif cmd == "log" then
     local log = db.log
     if #log == 0 then Print("No quest pages seen yet.") end
     for i = 1, math.min(5, #log) do
       local e = log[i]
       Print("%s  %s (%d)  %s  %s%s", e.when, e.title or "?", e.qid, e.group,
-        e.escort and "|cff40ff40escort|r" or "|cffff4040not an escort|r", e.why and (" - " .. e.why) or "")
+        e.escort and "|cff40ff40party event|r" or "|cffff4040not a party event|r", e.why and (" - " .. e.why) or "")
     end
   elseif cmd == "test" then
     ER.Test(arg ~= "member")
   elseif cmd == "config" or cmd == "settings" then
     ER.OpenSettings()
   elseif cmd == "show" then
-    if ER.session then ER.ShowWindow() else Print("No escort check running.") end
+    if ER.session then ER.ShowWindow() else Print("No party check running.") end
   elseif cmd == "cancel" then
     ER.Cancel()
   else
     Print("Gate %s, auto-join %s, auto start line %s, scale %.2f.", OnOff(char.enabled), OnOff(char.autoJoin), OnOff(char.autoGossip), char.scale)
-    Print("/er on | off - the escort gate on the Accept button")
-    Print("/er join - join the escort automatically once you ticked ready")
+    Print("/er on | off - the party check gate on the Accept button")
+    Print("/er join - join the party event quest automatically once you ticked ready")
     Print("/er gossip - after starting, pick the NPC's \"I'm ready\" line if there's exactly one")
     Print("/er check <questID> | add <id> | not <id> | reset <id>")
-    Print("/er add (no ID) - mark the quest page you opened last as an escort")
+    Print("/er add (no ID) - mark the quest page you opened last as a party event quest")
     Print("/er log - the last quest pages opened and what was decided")
     Print("/er show | cancel | scale <n> | config")
     Print("/er test - test check as the starter (sent to your group if you're in one)")

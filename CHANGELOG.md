@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0
+
+- Covers **party event quests**, not just escorts: fights and anything else where accepting ties up the quest giver. The window, chat and options say "party event quest" now.
+- New check: Questie's event objective ("Escort...", "Protect...", "Defend...", "Rescue...", "Escape..."). On Forever's data it matches only real escorts.
+- Added to the built-in list: Protect Daphne Stilwell, Escort Ringo, four Forever escorts (Perith Stormhoof, Lynessa Duskblossom, Pal'juh, Bareth Dawnstone) and Rock 'em and Sock 'em (the G45-B4G fight).
+- The quest page check also matches "help ... escape".
+
 ## 0.4.0
 
 - Catches escorts Questie doesn't know (Forever's own quests, like Rescue Roundup):

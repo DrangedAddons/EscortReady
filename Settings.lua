@@ -141,15 +141,15 @@ function ER.BuildSettings()
   sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
   sub:SetWidth(560)
   sub:SetJustifyH("LEFT")
-  sub:SetText("In a group, an escort quest's Accept button becomes a party ready check. "
+  sub:SetText("In a group, a party event quest's Accept button (escorts, fights and other events that tie up the NPC) becomes a party ready check. "
     .. "These settings are for this character.")
 
-  local c1 = Check(p, sub, "Ready-check escort quests in a group",
-    "Covers the Accept button on escort quests while you're in a group. Shift-click it to accept without a check.", "enabled")
-  local c2 = Check(p, c1, "Join the escort when I'm ready",
+  local c1 = Check(p, sub, "Ready-check party event quests in a group",
+    "Covers the Accept button on party event quests while you're in a group. Shift-click it to accept without a check.", "enabled")
+  local c2 = Check(p, c1, "Join the quest when I'm ready",
     "When the starter accepts, the game asks the group to join. Says yes for you if you ticked ready.", "autoJoin")
   local c3 = Check(p, c2, "Pick the NPC's start line after accepting",
-    "Some escorts need you to talk to the NPC again. If exactly one line looks like \"I'm ready\" or \"Let's go\", it's picked for you.", "autoGossip")
+    "Some of these quests need you to talk to the NPC again. If exactly one line looks like \"I'm ready\" or \"Let's go\", it's picked for you.", "autoGossip")
 
   local scale = CreateFrame("Slider", "EscortReadyScale", p, "OptionsSliderTemplate")
   scale:SetPoint("TOPLEFT", c3, "BOTTOMLEFT", 4, -28)

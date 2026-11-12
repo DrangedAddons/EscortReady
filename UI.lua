@@ -44,8 +44,8 @@ local function BuildGate()
   end)
   b:SetScript("OnEnter", function(self)
     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-    GameTooltip:AddLine("Escort quest", 1, 0.82, 0)
-    GameTooltip:AddLine("Once the escort starts, the NPC won't talk to anyone until it's over. "
+    GameTooltip:AddLine("Party event quest", 1, 0.82, 0)
+    GameTooltip:AddLine("Once this starts (an escort, a fight or another event), the NPC won't talk to anyone until it's over. "
       .. "Ready-check the group so everyone can hand in or pick up first.", 1, 1, 1, true)
     if self.why then GameTooltip:AddLine("Detected by: " .. self.why, 0.6, 0.6, 0.6, true) end
     GameTooltip:AddLine("Shift-click to accept without a check.", 0.6, 0.6, 0.6, true)
@@ -66,18 +66,18 @@ local function UpdateGate()
       local ready, _, total = ER.Counts()
       if ER.AllReady() or s.startOnOpen then
         gate:SetText(GREEN .. "Starting...|r")
-        gate.note:SetText(GREEN .. "Starting the escort.|r")
+        gate.note:SetText(GREEN .. "Starting the quest.|r")
       else
         gate:SetText(("Waiting %d/%d"):format(ready, total))
         gate.note:SetText(GOLD .. "Waiting for the group to tick ready.|r")
       end
     else
       gate:SetText("Ready check")
-      gate.note:SetText(GOLD .. s.leader .. " is starting this escort.|r")
+      gate.note:SetText(GOLD .. s.leader .. " is starting this quest.|r")
     end
   else
     gate:SetText("Check party")
-    gate.note:SetText(GOLD .. "Escort quest: ready-check your group first.|r")
+    gate.note:SetText(GOLD .. "Party event quest: ready-check your group first.|r")
   end
 end
 
@@ -142,7 +142,7 @@ local function BuildWindow()
 
   f.header = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   f.header:SetPoint("TOP", 0, -18)
-  f.header:SetText("Escort ready check")
+  f.header:SetText("Party event ready check")
 
   f.quest = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
   f.quest:SetPoint("TOP", f.header, "BOTTOM", 0, -6)
@@ -155,7 +155,7 @@ local function BuildWindow()
   f.help:SetPoint("TOP", f.by, "BOTTOM", 0, -8)
   f.help:SetWidth(430)
   f.help:SetText("Hand in your earlier parts and pick up this quest if you want it. "
-    .. "Once the escort starts the NPC won't talk to anyone.")
+    .. "Once it starts the NPC won't talk to anyone until it's over.")
 
   f.list = CreateFrame("Frame", nil, f)
   f.list:SetPoint("TOPLEFT", f.help, "BOTTOMLEFT", 0, -10)
@@ -256,7 +256,7 @@ local function UpdateWindow()
     win.anyway:Show(); win.cancel:Show()
     win.anyway:SetEnabled(not (all or s.go or s.startOnOpen))
     if s.go then
-      win.foot:SetText(GREEN .. "Escort started.|r")
+      win.foot:SetText(GREEN .. "Quest started.|r")
     elseif all or s.startOnOpen then
       win.foot:SetText(GREEN .. "Ready. Talk to the quest giver again and it starts.|r")
     elseif users < total then
@@ -272,11 +272,11 @@ local function UpdateWindow()
     win.ready:SetEnabled(st ~= "ready")
     win.notready:SetEnabled(st ~= "notready")
     if s.go then
-      win.foot:SetText(GREEN .. s.leader .. " started the escort.|r")
+      win.foot:SetText(GREEN .. s.leader .. " started the quest.|r")
     elseif st == "ready" and mine.status == "done" then
       win.foot:SetText("You've already completed this, so you're marked ready. Click Not ready if you still need the NPC.")
     elseif st == "ready" then
-      win.foot:SetText(ER.char.autoJoin and "You'll join the escort when it starts." or "Ready. Accept the join prompt when it starts.")
+      win.foot:SetText(ER.char.autoJoin and "You'll join the quest when it starts." or "Ready. Accept the join prompt when it starts.")
     else
       win.foot:SetText(("%d/%d ready."):format(ready, total))
     end

@@ -64,6 +64,15 @@ local KNOWN = {
   [6641] = true, -- Vorsha the Lasher
   [7046] = true, -- The Scepter of Celebras
   [25476] = true, -- Rescue OOX-22/FE!
+  -- Found in Forever's QuestieDB by their event objective (2026-11-13)
+  [1651] = true,  -- Protect Daphne Stilwell
+  [4492] = true,  -- Escort Ringo to Spraggle Frock
+  [98430] = true, -- Escort Perith Stormhoof out of Palemane Rock (Forever)
+  [99053] = true, -- Escort Lynessa Duskblossom out of Ban'ethil (Forever)
+  [99123] = true, -- Escort Pal'juh out of Kolkar Crag (Forever)
+  [99144] = true, -- Escort Bareth Dawnstone out of Crusader's Outpost (Forever)
+  -- Fights and other events that sent the party join prompt in game
+  [96067] = true, -- Rock 'em and Sock 'em: fight Sleebo's robot G45-B4G (Forever)
 }
 
 local ESCORT_TAG = 84
@@ -105,7 +114,13 @@ ER.PageText = PageText
 
 -- Words that only show up in an escort's objective. Checked against the objective text only
 -- (not the story text, which says "protect" and "lead" for all sorts of quests).
-local OBJECTIVE_WORDS = { "escort", "safely to", "safely back", "lead .- to safety", "lead .- out of", "protect .- while", "keep .- alive" }
+local OBJECTIVE_WORDS = { "escort", "safely to", "safely back", "lead .- to safety", "lead .- out of", "protect .- while", "keep .- alive", "help .- escape" }
+
+-- Questie's event objective (triggerEnd: the quest-log line ticked by an event, e.g. "Escort
+-- Corporal Keeshan back to Redridge"). Measured on Forever's QuestieDB: these words caught 35
+-- of the 56 known party event quests and 6 others, all 6 real escorts. Exploration and
+-- battleground events use the same field with other wording.
+local EVENT_WORDS = { "escort", "protect", "defend", "rescue", "escape" }
 
 function ER.LearnKey(title)
   title = Plain(title)
@@ -117,14 +132,14 @@ end
 function ER.IsEscort(qid)
   if type(qid) ~= "number" or qid <= 0 then return false end
   local db = ER.db
-  if db and db.never[qid] then return false, "you marked it not an escort" end
+  if db and db.never[qid] then return false, "you marked it not a party event quest" end
   if db and db.always[qid] then return true, "your list" end
-  if KNOWN[qid] then return true, "known escort" end
-  if db and db.learnedIds[qid] then return true, "seen as a party escort before" end
+  if KNOWN[qid] then return true, "known party event quest" end
+  if db and db.learnedIds[qid] then return true, "seen with the party join prompt before" end
 
   local title, objective = PageText(qid)
   local key = ER.LearnKey(title)
-  if db and key and db.learned[key] then return true, "seen as a party escort before" end
+  if db and key and db.learned[key] then return true, "seen with the party join prompt before" end
   if objective and objective ~= "" then
     local low = objective:lower()
     for _, w in ipairs(OBJECTIVE_WORDS) do
@@ -144,6 +159,17 @@ function ER.IsEscort(qid)
   end
 
   local qdb = QuestDB or (LibQuestieDB and LibQuestieDB.Quest)
+  if qdb and type(qdb.triggerEnd) == "function" then
+    local ok, trig = pcall(qdb.triggerEnd, qid)
+    local text = ok and type(trig) == "table" and trig[1] or (ok and trig)
+    if type(text) == "string" then
+      local low = text:lower()
+      for _, w in ipairs(EVENT_WORDS) do
+        if low:find(w, 1, true) then return true, "Questie's event objective says \"" .. w .. "\"" end
+      end
+    end
+  end
+  -- (Forever's QuestieDB has no questFlags; kept for clients whose data does.)
   if qdb and type(qdb.questFlags) == "function" then
     local ok, flags = pcall(qdb.questFlags, qid)
     if ok and type(flags) == "number" and bit.band(flags, PARTY_ACCEPT) ~= 0 then
