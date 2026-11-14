@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.0
+
+- Players without EscortReady can answer now. When someone in the group shows "No addon", the starter's window gets a **Ready check** button. It posts one party chat line naming the quest (the quest giver will be busy until it's over, hand in or pick it up first, then hit Ready) and starts the game's own ready check.
+- Their Ready / Not ready goes on their line, marked "ready check". Ready counts as ready, so when everyone is ready the quest starts as usual.
+- The game only lets the party leader (or a raid assistant) start a ready check. Otherwise the button is greyed out and the window says to ask the leader to type /readycheck. Answers to anyone's ready check count while a check is running.
+- In a group where everyone has the addon nothing changes: no button and no party message.
+
 ## 0.8.0
 
 - When everyone is ready the quest still starts straight away, but the window no longer vanishes in a flash. It stays up showing everyone ready and "The quest has started", counts down "This window closes in 3... 2... 1..." and closes itself. You can close it sooner with the X or Escape. (Most noticeable when everyone has already done the quest and is marked ready instantly.)

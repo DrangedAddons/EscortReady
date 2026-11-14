@@ -132,6 +132,82 @@ function ER.AllReady()
   return users > 0 and ready == users and ready == total
 end
 
+---------------------------------------------------------------------------
+-- The game's own ready check, for players without the addon. Only the party leader (or a
+-- raid leader/assistant) may start one. Whoever starts it, every copy of EscortReady sees
+-- each answer (READY_CHECK_CONFIRM) and puts it on that player's line, addon or not.
+---------------------------------------------------------------------------
+function ER.CanReadyCheck()
+  if UnitIsGroupLeader and UnitIsGroupLeader("player") then return true end
+  return IsInRaid() and UnitIsGroupAssistant and UnitIsGroupAssistant("player") or false
+end
+
+function ER.LeaderName()
+  local n = IsInRaid() and GetNumGroupMembers() or GetNumSubgroupMembers()
+  local pre = IsInRaid() and "raid" or "party"
+  for i = 1, n do
+    local u = pre .. i
+    if UnitIsGroupLeader and UnitIsGroupLeader(u) then return Norm(GetUnitName(u, true)) end
+  end
+end
+
+-- Anyone in the roster the addon can't hear from yet: a ready check is worth offering.
+function ER.HasNoAddon()
+  local s = ER.session
+  if not s then return false end
+  for _, n in ipairs(ER.Roster()) do
+    local m = s.members[n]
+    if m and m.state == "noaddon" then return true end
+  end
+  return false
+end
+
+-- One party chat line before the ready check, so players without the addon know what they're
+-- answering. Once per check. Ready from them is taken as ready.
+function ER.AnnounceReadyCheck()
+  local s = ER.session
+  if not s or s.announced or not ER.HasNoAddon() then return end -- all on the addon: no chat
+  local ch = ER.Channel()
+  if not ch or not SendChatMessage then return end
+  s.announced = true
+  local text = ("[EscortReady] Ready check for %s: once it starts the quest giver is busy until it's over. "
+    .. "Hand in or pick it up first, then hit Ready."):format(s.title)
+  if #text > 255 then text = text:sub(1, 252) .. "..." end
+  local ok, err = pcall(SendChatMessage, text, ch)
+  if not ok then Print("Couldn't post the party message (%s).", tostring(err)) end
+end
+
+function ER.StartReadyCheck()
+  if not ER.CanReadyCheck() then
+    Print("Only the party leader can start a ready check. Ask %s to type /readycheck; the answers count here too.",
+      ER.LeaderName() or "the leader")
+    return
+  end
+  ER.rcSeen = nil
+  ER.AnnounceReadyCheck()
+  local ok, err = pcall(DoReadyCheck)
+  if not ok then
+    Print("The game didn't allow a ready check from the addon (%s). Type /readycheck; the answers count here too.", tostring(err))
+    return
+  end
+  C_Timer.After(1.5, function()
+    if not ER.rcSeen then Print("No ready check appeared. Type /readycheck; the answers count here too.") end
+  end)
+end
+
+-- READY_CHECK_CONFIRM: unit answered. Applies to everyone's line, so the latest answer wins
+-- (the window's Ready / Not ready, or the game's ready check).
+function ER.OnReadyConfirm(unit, isReady)
+  local s = ER.session
+  if not s or type(unit) ~= "string" then return end
+  local name = Norm(UnitIsUnit and UnitIsUnit(unit, "player") and ER.Me() or GetUnitName(unit, true))
+  if not name then return end
+  local m = Member(s, name)
+  m.state = isReady and "ready" or "notready"
+  m.rc = true
+  ER.Refresh()
+end
+
 function ER.Begin(qid, title)
   if not ER.Channel() then return end
   local s = NewSession(qid, title or ER.QuestTitle(qid), ER.Me())
@@ -596,6 +672,8 @@ f:RegisterEvent("QUEST_FINISHED")
 f:RegisterEvent("QUEST_ACCEPTED")
 f:RegisterEvent("QUEST_ACCEPT_CONFIRM")
 f:RegisterEvent("GOSSIP_SHOW")
+f:RegisterEvent("READY_CHECK")
+f:RegisterEvent("READY_CHECK_CONFIRM")
 
 f:SetScript("OnEvent", function(_, event, ...)
   if event == "ADDON_LOADED" then
@@ -643,6 +721,15 @@ f:SetScript("OnEvent", function(_, event, ...)
     OnAcceptConfirm(...)
   elseif event == "GOSSIP_SHOW" then
     OnGossip()
+  elseif event == "READY_CHECK" then
+    ER.rcSeen = GetTime()
+    -- the starter of a ready check counts as ready (the game marks them so, with no confirm)
+    local who = Norm((...))
+    local s = ER.session
+    if s and who and s.members[who] then s.members[who].state = "ready"; s.members[who].rc = true; ER.Refresh() end
+  elseif event == "READY_CHECK_CONFIRM" then
+    local unit, isReady = ...
+    ER.OnReadyConfirm(Plain(unit), Plain(isReady))
   end
 end)
 

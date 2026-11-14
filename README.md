@@ -10,6 +10,7 @@ Once someone accepts one, the NPC walks off, turns hostile or starts a scene, an
 - Clicking it sends a ready check to the group. Everyone with the addon gets a window with Ready / Not ready, plus who's on the quest. Anyone who has already completed it is marked ready automatically.
 - When everyone is ready, the quest is accepted by itself. If the quest page was closed, it starts the moment you talk to the quest giver again.
 - **Start anyway** starts without everyone, after a Yes on a warning.
+- Players without the addon show as "No addon". The starter gets a **Ready check** button that posts a party chat line about the quest and starts the game's own ready check; their Ready / Not ready goes on their line. Only the party leader can start one; otherwise ask the leader to type `/readycheck` (the answers count either way).
 - Auto-quest addons (Questie, RestedXP, Leatrix Plus and anything else calling `AcceptQuest()`) are held back on these quests in a group. Their accept starts the party check instead, and EscortReady accepts once the group is ready.
 - Party members who ticked ready get the game's "join this quest" prompt accepted for them. If the NPC then offers exactly one "I'm ready" / "Let's go" line, it's picked.
 

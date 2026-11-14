@@ -169,6 +169,23 @@ local function BuildWindow()
   f.cancel:SetScript("OnClick", function() ER.Cancel() end)
   f.anyway:SetPoint("BOTTOMLEFT", 20, 18)
   f.cancel:SetPoint("BOTTOMRIGHT", -20, 18)
+  -- the game's ready check, offered while someone has no addon (leader/assistant only)
+  f.rc = MakeButton(f, "Ready check", 130)
+  f.rc:SetPoint("BOTTOM", 0, 18)
+  f.rc:SetScript("OnClick", function() ER.StartReadyCheck() end)
+  f.rc:SetMotionScriptsWhileDisabled(true)
+  f.rc:SetScript("OnEnter", function(self)
+    GameTooltip:SetOwner(self, "ANCHOR_TOP")
+    GameTooltip:AddLine("Ready check", 1, 0.82, 0)
+    GameTooltip:AddLine("Starts the game's own ready check, so players without EscortReady can answer. "
+      .. "Their Ready / Not ready goes on their line here.", 1, 1, 1, true)
+    if not ER.CanReadyCheck() then
+      GameTooltip:AddLine("Only the party leader can start one. Ask " .. (ER.LeaderName() or "the leader")
+        .. " to type /readycheck; the answers count here too.", 1, 0.4, 0.4, true)
+    end
+    GameTooltip:Show()
+  end)
+  f.rc:SetScript("OnLeave", GameTooltip_Hide)
 
   -- everyone else
   f.ready = MakeButton(f, "Ready", 130)
@@ -183,7 +200,7 @@ local function BuildWindow()
   f.foot:SetWidth(430)
 
   f.erTitle = f.header
-  for _, b in ipairs({ f.anyway, f.cancel, f.ready, f.notready }) do ER.ThemeRegisterButton(b) end
+  for _, b in ipairs({ f.anyway, f.cancel, f.rc, f.ready, f.notready }) do ER.ThemeRegisterButton(b) end
 
   f:Hide()
   return f
@@ -244,7 +261,9 @@ local function UpdateWindow()
     local m = s.members[n] or { state = "wait" }
     r.name:SetText(ClassColor(n))
     r.state:SetText(STATE_TEXT[m.state] or m.state)
-    r.note:SetText(STATUS_TEXT[m.status or ""] or "")
+    local note = STATUS_TEXT[m.status or ""] or ""
+    if note == "" and m.rc then note = "ready check" end
+    r.note:SetText(note)
     r.name:Show(); r.state:Show(); r.note:Show()
   end
   for i = #names + 1, #rows do
@@ -254,6 +273,8 @@ local function UpdateWindow()
 
   local ready, users, total = ER.Counts()
   local all = ER.AllReady()
+  win.rc:SetShown(not closing and s.mine and not s.go and not s.startOnOpen and ER.HasNoAddon())
+  win.rc:SetEnabled(ER.CanReadyCheck())
   if closing then
     -- nothing left to click: just the result and the countdown
     win.ready:Hide(); win.notready:Hide(); win.anyway:Hide(); win.cancel:Hide()
@@ -268,8 +289,10 @@ local function UpdateWindow()
       win.foot:SetText(GREEN .. "Quest started.|r")
     elseif all or s.startOnOpen then
       win.foot:SetText(GREEN .. "Ready. Talk to the quest giver again and it starts.|r")
-    elseif users < total then
-      win.foot:SetText(("%d/%d ready. %d without the addon can't tick ready."):format(ready, total, total - users))
+    elseif ER.HasNoAddon() then
+      win.foot:SetText(("%d/%d ready. %d without the addon: "):format(ready, total, total - users)
+        .. (ER.CanReadyCheck() and "use Ready check so they can answer."
+          or ("ask " .. (ER.LeaderName() or "the leader") .. " to type /readycheck.")))
     else
       win.foot:SetText(("%d/%d ready."):format(ready, total))
     end
