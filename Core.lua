@@ -90,7 +90,10 @@ end
 ---------------------------------------------------------------------------
 -- My status for a quest, shown next to my name for everyone
 ---------------------------------------------------------------------------
-function ER.MyStatus(qid)
+-- s: the check it's for. In a test check nobody counts as having done the quest (the test
+-- quests are real vanilla escorts, so a party member may well have), so everyone gets the window.
+function ER.MyStatus(qid, s)
+  if s and s.test then return "none" end
   local ok, done = pcall(C_QuestLog.IsQuestFlaggedCompleted, qid)
   if ok and done == true then return "done" end
   local ok2, idx = pcall(C_QuestLog.GetLogIndexForQuestID, qid)
@@ -151,7 +154,7 @@ function ER.SetMyState(s, state)
   if not s or ER.sessions[s.qid] ~= s then return end
   local m = Member(s, ER.Me())
   m.state = state
-  m.status = ER.MyStatus(s.qid)
+  m.status = ER.MyStatus(s.qid, s)
   ER.Send(("R^%d^%s^%s"):format(s.qid, state, m.status), s)
   ER.Refresh()
 end
@@ -477,7 +480,7 @@ function ER.Test(asStarter)
     local s = NewSession(qid, title, me)
     s.test, s.live = true, true
     Member(s, me).state = "ready"
-    Member(s, me).status = ER.MyStatus(qid)
+    Member(s, me).status = ER.MyStatus(qid, s)
     ER.Send(("Q^%d^%s^T"):format(s.qid, s.title:gsub("%^", "")), s)
     ER.Send(("R^%d^ready^%s"):format(s.qid, Member(s, me).status), s)
     ER.ShowWindow(s)
@@ -490,7 +493,7 @@ function ER.Test(asStarter)
   local s = NewSession(qid, title, leader, roster)
   s.mine, s.test = asStarter, true
   s.members[leader].state = "ready"
-  s.members[me].status = ER.MyStatus(qid)
+  s.members[me].status = ER.MyStatus(qid, s)
   if not asStarter then
     s.members[me].state = s.members[me].status == "done" and "ready" or "seen"
   end
@@ -545,7 +548,7 @@ local function OnMessage(msg, sender)
         s.startOnOpen, s.anyway, s.toldReopen = nil, nil, nil
         pcall(StaticPopup_Hide, "ESCORTREADY_START_ANYWAY", s)
         Member(s, ER.Me()).state = "ready"
-        ER.Send(("R^%d^ready^%s"):format(qid, Member(s, ER.Me()).status or ER.MyStatus(qid)), s)
+        ER.Send(("R^%d^ready^%s"):format(qid, Member(s, ER.Me()).status or ER.MyStatus(qid, s)), s)
         Print("%s started a check for %s at the same moment. Theirs goes ahead and you're marked ready.", sender, s.title)
       else
         s.leader = sender
@@ -558,7 +561,7 @@ local function OnMessage(msg, sender)
     if c == "T" then s.test, s.live = true, true end
     Member(s, sender).state = "ready"
     local me = Member(s, ER.Me())
-    me.status = ER.MyStatus(qid)
+    me.status = ER.MyStatus(qid, s)
     -- already completed: nothing to pick up, so ready from the start (Not ready still works)
     me.state = me.status == "done" and "ready" or "seen"
     ER.Send(("R^%d^%s^%s"):format(qid, me.state, me.status), s)

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.12.1
+
+- Test checks no longer look at whether you've done the test quest (they borrow real vanilla escorts, which party members may have completed). Everyone is "not done" in a test, so everyone gets the panel and ticks ready by hand. Party members need 0.12.1 too.
+
 ## 0.12.0
 
 - Alone in a group (everyone else has left or is offline), party event quests aren't held and no check starts. Nobody is there to be locked out.
