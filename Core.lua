@@ -46,6 +46,19 @@ function ER.Channel()
   return nil
 end
 
+-- Anyone else in the group who's online. Alone in a group (everyone else left or is
+-- offline), nobody can be locked out by the quest giver, so there's nothing to check.
+function ER.HasCompany()
+  if not ER.Channel() then return false end
+  local raid = IsInRaid()
+  local n = raid and GetNumGroupMembers() or GetNumSubgroupMembers()
+  for i = 1, n do
+    local u = (raid and "raid" or "party") .. i
+    if UnitExists(u) and not UnitIsUnit(u, "player") and UnitIsConnected(u) then return true end
+  end
+  return false
+end
+
 -- Names in group order, you first. A local test session brings its own made-up roster.
 function ER.Roster(s)
   if s and s.roster then return s.roster end
@@ -256,7 +269,7 @@ ER.Rank = Rank
 -- Starts a check for this quest, or shows the one already running for it (mine or someone
 -- else's). Checks for other quests keep running alongside.
 function ER.Begin(qid, title)
-  if not ER.Channel() then return end
+  if not ER.HasCompany() then return end
   local s = ER.sessions[qid]
   if s then ER.ShowWindow(s); ER.Refresh(); return end
   s = NewSession(qid, title or ER.QuestTitle(qid), ER.Me())
@@ -364,7 +377,7 @@ local lastBlockMsg = {}
 -- The escort quest a call to AcceptQuest() would accept right now, if it must be held.
 local function HeldQuest()
   local char = ER.char
-  if not (char and char.enabled) or not ER.Channel() then return nil end
+  if not (char and char.enabled) or not ER.HasCompany() then return nil end
   local qid = Plain(GetQuestID())
   if type(qid) ~= "number" or qid <= 0 or not ER.IsEscort(qid) then return nil end
   -- Always held, every time. EscortReady's own accept goes through ER.RealAccept, never here.
@@ -460,7 +473,7 @@ function ER.Test(asStarter)
   local me = ER.Me()
   local title = ("[Test%s] %s"):format(n > 1 and (" " .. n) or "", ER.QuestTitle(qid))
 
-  if asStarter and ER.Channel() then
+  if asStarter and ER.HasCompany() then
     local s = NewSession(qid, title, me)
     s.test, s.live = true, true
     Member(s, me).state = "ready"
@@ -797,7 +810,7 @@ f:SetScript("OnEvent", function(_, event, ...)
     local s = type(qid) == "number" and ER.sessions[qid]
     if s then
       if s.mine and not s.go then
-        -- accepted some other way (shift-click past the gate): still tell the group
+        -- accepted some other way (an addon that kept its own copy of AcceptQuest): still tell the group
         s.go = true
         ER.Send(("G^%d"):format(s.qid), s)
       end

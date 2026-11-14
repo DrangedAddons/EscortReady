@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.12.0
+
+- Alone in a group (everyone else has left or is offline), party event quests aren't held and no check starts. Nobody is there to be locked out.
+- Removed shift-click on Check party. The only ways to start a party event quest in a group are everyone ready, or Start anyway and its Yes.
+
 ## 0.11.0
 
 - Several party event quests can be checked at once. Each check gets its own panel, side by side in a row centred on the screen, the first one started on the left. With one check the panel is full size; with more, the panels narrow so the row fits. Drag any panel to move the row. The X closes one panel (the check keeps running, `/er show` brings it back) and Escape closes them all.

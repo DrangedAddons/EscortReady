@@ -145,7 +145,7 @@ function ER.BuildSettings()
     .. "These settings are for this character.")
 
   local c1 = Check(p, sub, "Ready-check party event quests in a group",
-    "Covers the Accept button on party event quests while you're in a group. Shift-click it to accept without a check.", "enabled")
+    "Covers the Accept button on party event quests while you're in a group. Not when everyone else in the group is offline or gone.", "enabled")
   local c2 = Check(p, c1, "Join the quest when I'm ready",
     "When the starter accepts, the game asks the group to join. Says yes for you if you ticked ready.", "autoJoin")
   local c3 = Check(p, c2, "Pick the NPC's start line after accepting",

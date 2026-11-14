@@ -14,10 +14,6 @@ local GREEN, RED, GOLD, GREY = "|cff40ff40", "|cffff4040", "|cffffd100", "|cff90
 ---------------------------------------------------------------------------
 local gate
 
-local function AcceptNormally()
-  ER.RealAccept() -- shift-click: past the block on purpose
-end
-
 local function BuildGate()
   local accept = QuestFrameAcceptButton
   if not accept then return nil end
@@ -32,7 +28,6 @@ local function BuildGate()
   b.note = note
 
   b:SetScript("OnClick", function(self)
-    if IsShiftKeyDown() then AcceptNormally(); return end
     -- shows the check already running for this quest, or starts one (others keep running)
     local title = Plain(GetTitleText())
     ER.Begin(self.qid, type(title) == "string" and title ~= "" and title or nil)
@@ -43,7 +38,6 @@ local function BuildGate()
     GameTooltip:AddLine("Once this starts (an escort, a fight or another event), the NPC won't talk to anyone until it's over. "
       .. "Ready-check the group so everyone can hand in or pick up first.", 1, 1, 1, true)
     if self.why then GameTooltip:AddLine("Detected by: " .. self.why, 0.6, 0.6, 0.6, true) end
-    GameTooltip:AddLine("Shift-click to accept without a check.", 0.6, 0.6, 0.6, true)
     GameTooltip:Show()
   end)
   b:SetScript("OnLeave", GameTooltip_Hide)
@@ -79,7 +73,7 @@ end
 function ER.OnQuestDetail()
   local qid = Plain(GetQuestID())
   local char = ER.char
-  if not (char and char.enabled and type(qid) == "number" and ER.Channel()) then ER.HideGate(); return end
+  if not (char and char.enabled and type(qid) == "number" and ER.HasCompany()) then ER.HideGate(); return end
   local yes, why = ER.IsEscort(qid)
   if not yes then ER.HideGate(); return end
   gate = gate or BuildGate()

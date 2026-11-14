@@ -6,7 +6,7 @@ Once someone accepts one, the NPC walks off, turns hostile or starts a scene, an
 
 ## How it works
 
-- In a group, a party event quest's Accept button becomes **Check party**. Shift-click it to accept without a check.
+- In a group, a party event quest's Accept button becomes **Check party**. There's no way past it except the check itself (or Start anyway). Alone in a group, with everyone else offline or gone, nothing is checked.
 - Clicking it sends a ready check to the group. Everyone with the addon gets a window with Ready / Not ready, plus who's on the quest. Anyone who has already completed it is marked ready automatically.
 - When everyone is ready, the quest is accepted by itself. If the quest page was closed, it starts the moment you talk to the quest giver again.
 - **Start anyway** starts without everyone, after a Yes on a warning.
