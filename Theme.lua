@@ -286,5 +286,5 @@ end
 
 function ER.SetLook(key)
   ER.db.theme = key
-  if EscortReadyFrame then ER.ApplyTheme(EscortReadyFrame) end
+  if ER.RethemeWindows then ER.RethemeWindows() end
 end

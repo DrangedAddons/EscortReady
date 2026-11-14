@@ -12,6 +12,7 @@ Once someone accepts one, the NPC walks off, turns hostile or starts a scene, an
 - **Start anyway** starts without everyone, after a Yes on a warning.
 - Players without the addon show as "No addon". The starter gets a **Ready check** button that posts a party chat line about the quest and starts the game's own ready check; their Ready / Not ready goes on their line. Only the party leader can start one; otherwise ask the leader to type `/readycheck` (the answers count either way).
 - Auto-quest addons (Questie, RestedXP, Leatrix Plus and anything else calling `AcceptQuest()`) are held back on these quests in a group. Their accept starts the party check instead, and EscortReady accepts once the group is ready.
+- Two party event quests at once each get their own panel, side by side in a row across the middle of the screen (first started on the left). If two players start the same quest at the same moment, the alphabetically first name's check goes ahead.
 - Party members who ticked ready get the game's "join this quest" prompt accepted for them. If the NPC then offers exactly one "I'm ready" / "Let's go" line, it's picked.
 
 ## How a quest is recognised
@@ -46,7 +47,7 @@ not 12345 Some Quest        you marked it with /er not (a wrong catch)
 
 Esc > Options > AddOns > EscortReady, or `/er config`. Per character: the gate, auto-join, the start line, window size. With EllesmereUI loaded the window follows its look and font (Window look dropdown).
 
-The Testing buttons open the window without a quest. As the starter in a group, a [Test] check goes to the party like a ready check; solo, made-up members tick ready over a few seconds. No quest is ever accepted by a test.
+The Testing buttons open the window without a quest. As the starter in a group, a [Test] check goes to the party like a ready check; solo, made-up members tick ready over a few seconds. Each press adds another check (up to four), to see the panels side by side. No quest is ever accepted by a test.
 
 ## Commands
 

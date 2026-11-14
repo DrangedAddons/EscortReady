@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.11.0
+
+- Several party event quests can be checked at once. Each check gets its own panel, side by side in a row centred on the screen, the first one started on the left. With one check the panel is full size; with more, the panels narrow so the row fits. Drag any panel to move the row. The X closes one panel (the check keeps running, `/er show` brings it back) and Escape closes them all.
+- Opening a party event quest while someone else's check for it is running shows their check. It no longer replaces it on your screen or sends a second one to the group.
+- Two players starting a check on the same quest at the same moment: every copy keeps the one from the alphabetically first name. The other starter becomes a party member of it, marked ready. Before, both acted as the starter and both accepted.
+- The game's ready check now only fills in players without the addon. Addon users answer in each quest's panel.
+- Testing: each press of a test button adds another check (up to four), so the side-by-side panels can be tried too.
+- `/er cancel` cancels every running check.
+
 ## 0.10.0
 
 - When anyone in the group doesn't have EscortReady, the start also goes in party chat, since they can't get the addon's alert:

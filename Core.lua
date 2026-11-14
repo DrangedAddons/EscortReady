@@ -46,9 +46,9 @@ function ER.Channel()
   return nil
 end
 
--- Names in group order, you first. A test session brings its own made-up roster.
-function ER.Roster()
-  if ER.session and ER.session.roster then return ER.session.roster end
+-- Names in group order, you first. A local test session brings its own made-up roster.
+function ER.Roster(s)
+  if s and s.roster then return s.roster end
   local list, seen = {}, {}
   local function add(n)
     n = Norm(n)
@@ -66,8 +66,9 @@ function ER.Roster()
   return list
 end
 
-function ER.Send(msg)
-  if ER.session and ER.session.test and not ER.session.live then return end
+-- s: the check this message is about. A local test never sends anything.
+function ER.Send(msg, s)
+  if s and s.test and not s.live then return end
   local ch = ER.Channel()
   if not ch then return end
   pcall(C_ChatInfo.SendAddonMessage, ER.PREFIX, msg, ch)
@@ -87,13 +88,43 @@ end
 ---------------------------------------------------------------------------
 -- Session
 ---------------------------------------------------------------------------
--- ER.session = { qid, title, leader, mine, t0, members = { [name] = { state, status, t } }, go }
+-- Several checks can run at once, one per quest (two party event quests started at the same
+-- time). ER.sessions[qid] = the running check for that quest; ER.order = running checks in the
+-- order they started, which is also the window order, left to right.
+-- s = { qid, title, leader, mine, t0, seq, members = { [name] = { state, status, t } }, go, hidden }
 -- state: "wait" (no reply yet), "noaddon", "seen", "ready", "notready"
+-- hidden: its panel isn't on screen (closed with X, or never shown: already completed).
+ER.sessions, ER.order = {}, {}
+local seq = 0
 
-local function NewSession(qid, title, leader)
-  local s = { qid = qid, title = title, leader = leader, mine = leader == ER.Me(), t0 = GetTime(), members = {} }
-  for _, n in ipairs(ER.Roster()) do s.members[n] = { state = "wait", t = GetTime() } end
-  ER.session = s
+local function RemoveSession(s)
+  if ER.sessions[s.qid] == s then ER.sessions[s.qid] = nil end
+  for i = #ER.order, 1, -1 do
+    if ER.order[i] == s then table.remove(ER.order, i) end
+  end
+end
+
+local function AddSession(s)
+  local old = ER.sessions[s.qid]
+  if old then RemoveSession(old) end
+  ER.sessions[s.qid] = s
+  ER.order[#ER.order + 1] = s
+end
+
+-- A copy, safe to loop over while checks end.
+function ER.Running()
+  local out = {}
+  for i, s in ipairs(ER.order) do out[i] = s end
+  return out
+end
+
+-- Panels start hidden; ER.ShowWindow(s) puts one on screen.
+local function NewSession(qid, title, leader, roster)
+  seq = seq + 1
+  local s = { qid = qid, title = title, leader = leader, mine = leader == ER.Me(), t0 = GetTime(),
+    seq = seq, members = {}, roster = roster, hidden = true }
+  for _, n in ipairs(ER.Roster(s)) do s.members[n] = { state = "wait", t = GetTime() } end
+  AddSession(s)
   return s
 end
 
@@ -103,22 +134,20 @@ local function Member(s, name)
   return m
 end
 
-function ER.SetMyState(state)
-  local s = ER.session
-  if not s then return end
+function ER.SetMyState(s, state)
+  if not s or ER.sessions[s.qid] ~= s then return end
   local m = Member(s, ER.Me())
   m.state = state
   m.status = ER.MyStatus(s.qid)
-  ER.Send(("R^%d^%s^%s"):format(s.qid, state, m.status))
+  ER.Send(("R^%d^%s^%s"):format(s.qid, state, m.status), s)
   ER.Refresh()
 end
 
 -- Count of ready / addon users / everyone, for the current roster only.
-function ER.Counts()
-  local s = ER.session
+function ER.Counts(s)
   if not s then return 0, 0, 0 end
   local ready, users, total = 0, 0, 0
-  for _, n in ipairs(ER.Roster()) do
+  for _, n in ipairs(ER.Roster(s)) do
     local m = Member(s, n)
     total = total + 1
     if m.state ~= "wait" and m.state ~= "noaddon" then users = users + 1 end
@@ -127,8 +156,8 @@ function ER.Counts()
   return ready, users, total
 end
 
-function ER.AllReady()
-  local ready, users, total = ER.Counts()
+function ER.AllReady(s)
+  local ready, users, total = ER.Counts(s)
   return users > 0 and ready == users and ready == total
 end
 
@@ -152,10 +181,9 @@ function ER.LeaderName()
 end
 
 -- Anyone in the roster the addon can't hear from yet: a ready check is worth offering.
-function ER.HasNoAddon()
-  local s = ER.session
+function ER.HasNoAddon(s)
   if not s then return false end
-  for _, n in ipairs(ER.Roster()) do
+  for _, n in ipairs(ER.Roster(s)) do
     local m = s.members[n]
     if m and (m.state == "noaddon" or m.noaddon) then return true end
   end
@@ -164,9 +192,8 @@ end
 
 -- One party chat line before the ready check, so players without the addon know what they're
 -- answering. Once per check. Ready from them is taken as ready.
-function ER.AnnounceReadyCheck()
-  local s = ER.session
-  if not s or s.announced or not ER.HasNoAddon() then return end -- all on the addon: no chat
+function ER.AnnounceReadyCheck(s)
+  if not s or s.announced or not ER.HasNoAddon(s) then return end -- all on the addon: no chat
   local ch = ER.Channel()
   if not ch or not SendChatMessage then return end
   s.announced = true
@@ -177,14 +204,14 @@ function ER.AnnounceReadyCheck()
   if not ok then Print("Couldn't post the party message (%s).", tostring(err)) end
 end
 
-function ER.StartReadyCheck()
+function ER.StartReadyCheck(s)
   if not ER.CanReadyCheck() then
     Print("Only the party leader can start a ready check. Ask %s to type /readycheck; the answers count here too.",
       ER.LeaderName() or "the leader")
     return
   end
   ER.rcSeen = nil
-  ER.AnnounceReadyCheck()
+  ER.AnnounceReadyCheck(s)
   local ok, err = pcall(DoReadyCheck)
   if not ok then
     Print("The game didn't allow a ready check from the addon (%s). Type /readycheck; the answers count here too.", tostring(err))
@@ -195,48 +222,72 @@ function ER.StartReadyCheck()
   end)
 end
 
--- READY_CHECK_CONFIRM: unit answered. Applies to everyone's line, so the latest answer wins
--- (the window's Ready / Not ready, or the game's ready check).
+-- A game ready-check answer only counts for players without the addon: they have no other
+-- way to answer. Addon users answer in each quest's panel. With several checks running, the
+-- answer goes on that player's line in every one of them.
+local function ByReadyCheck(m)
+  return m and (m.noaddon or m.state == "noaddon" or m.state == "wait")
+end
+
+-- READY_CHECK_CONFIRM: unit answered.
 function ER.OnReadyConfirm(unit, isReady)
-  local s = ER.session
-  if not s or type(unit) ~= "string" then return end
+  if type(unit) ~= "string" or #ER.order == 0 then return end
   local name = Norm(UnitIsUnit and UnitIsUnit(unit, "player") and ER.Me() or GetUnitName(unit, true))
   if not name then return end
-  local m = Member(s, name)
-  m.state = isReady and "ready" or "notready"
-  m.rc = true
-  ER.Refresh()
+  local changed
+  for _, s in ipairs(ER.order) do
+    local m = s.members[name]
+    if ByReadyCheck(m) then
+      m.state = isReady and "ready" or "notready"
+      m.rc, m.noaddon = true, true
+      changed = true
+    end
+  end
+  if changed then ER.Refresh() end
 end
 
+-- Lower name wins when two players start a check on the same quest at the same moment.
+-- Compared without the realm, lower-cased, so every copy in the group picks the same one.
+local function Rank(name)
+  return ((name:match("^[^-]+") or name)):lower()
+end
+ER.Rank = Rank
+
+-- Starts a check for this quest, or shows the one already running for it (mine or someone
+-- else's). Checks for other quests keep running alongside.
 function ER.Begin(qid, title)
   if not ER.Channel() then return end
-  local s = NewSession(qid, title or ER.QuestTitle(qid), ER.Me())
+  local s = ER.sessions[qid]
+  if s then ER.ShowWindow(s); ER.Refresh(); return end
+  s = NewSession(qid, title or ER.QuestTitle(qid), ER.Me())
   Member(s, ER.Me()).state = "ready"
   Member(s, ER.Me()).status = ER.MyStatus(qid)
-  ER.Send(("Q^%d^%s"):format(qid, s.title:gsub("%^", "")))
-  ER.Send(("R^%d^ready^%s"):format(qid, Member(s, ER.Me()).status))
-  ER.ShowWindow()
+  ER.Send(("Q^%d^%s"):format(qid, s.title:gsub("%^", "")), s)
+  ER.Send(("R^%d^ready^%s"):format(qid, Member(s, ER.Me()).status), s)
+  ER.ShowWindow(s)
   ER.Refresh()
 end
 
-function ER.Cancel(silent)
-  local s = ER.session
+function ER.Cancel(s, silent)
   if not s then return end
-  if s.mine and not silent then ER.Send(("C^%d"):format(s.qid)) end
-  ER.session = nil
-  ER.HideWindow()
+  if s.mine and not silent then ER.Send(("C^%d"):format(s.qid), s) end
+  RemoveSession(s)
+  ER.HidePanel(s)
   ER.Refresh()
+end
+
+function ER.CancelAll(silent)
+  for _, s in ipairs(ER.Running()) do ER.Cancel(s, silent) end
 end
 
 -- The starter, with the quest page open: accept it and tell the group.
-function ER.StartEscort()
-  local s = ER.session
-  if not s or not s.mine then return end
+function ER.StartEscort(s)
+  if not s or not s.mine or ER.sessions[s.qid] ~= s then return end
   if s.test then
     s.go = true
-    ER.Send(("G^%d"):format(s.qid))
+    ER.Send(("G^%d"):format(s.qid), s)
     if s.live then ER.AnnounceStart(s) end -- live group test: same party line, title says [Test]
-    Print("Test: this is where the quest would be accepted.")
+    Print("Test: this is where %s would be accepted.", s.title)
     ER.EndCheck(s, not s.closed)
     return
   end
@@ -247,23 +298,22 @@ function ER.StartEscort()
     s.startOnOpen = true
     if not s.toldReopen then
       s.toldReopen = true
-      Print("Everyone's set. Talk to the quest giver again and the quest starts.")
+      Print("Everyone's set for %s. Talk to the quest giver again and the quest starts.", s.title)
     end
-    ER.Refresh()
     return
   end
   s.go = true
   ER.gossipUntil = GetTime() + ER.GOSSIP_WINDOW
-  ER.Send(("G^%d"):format(s.qid))
+  ER.Send(("G^%d"):format(s.qid), s)
   ER.AnnounceStart(s)
   ER.RealAccept()
-  ER.EndCheck(s, not s.closed) -- after Start anyway the window is already shut: keep it shut
+  ER.EndCheck(s, not s.closed) -- after Start anyway the panel is already shut: keep it shut
 end
 
 -- Players without the addon can't get the "started" message or the alert, so when anyone in
 -- the group has no addon, the start goes in party chat too. Nothing when all have the addon.
 function ER.AnnounceStart(s)
-  if not s or ER.session ~= s or not ER.HasNoAddon() then return end
+  if not s or ER.sessions[s.qid] ~= s or not ER.HasNoAddon(s) then return end
   local ch = ER.Channel()
   if not ch or not SendChatMessage then return end
   local text = s.anyway
@@ -287,12 +337,12 @@ end
 
 -- A check is over the moment its quest starts. Nothing of it is kept, so if the quest fails
 -- or someone goes again, the next accept gets a fresh ready check.
--- linger: the window stays up ER.COUNTDOWN seconds saying the quest started, counting down
+-- linger: the panel stays up ER.COUNTDOWN seconds saying the quest started, counting down
 -- to closing (ER.LingerWindow in UI.lua). The check itself is gone either way.
 function ER.EndCheck(s, linger)
-  if s and ER.session ~= s then return end
-  ER.session = nil
-  if linger and s then ER.LingerWindow(s) else ER.HideWindow() end
+  if not s or ER.sessions[s.qid] ~= s then return end
+  RemoveSession(s)
+  if linger then ER.LingerWindow(s) else ER.HidePanel(s) end
   ER.Refresh()
 end
 
@@ -323,22 +373,16 @@ end
 ER.HeldQuest = HeldQuest
 
 -- Called instead of a real accept. Starts the party check for an escort nobody is checking
--- yet, so an auto-accept addon gets the same flow as clicking Check party.
+-- yet, so an auto-accept addon gets the same flow as clicking Check party. If a check for it
+-- is already running (mine or a party member's), that one is shown instead.
 local function Held(qid)
-  local s = ER.session
   local now = GetTime()
   if not lastBlockMsg[qid] or now - lastBlockMsg[qid] > 10 then
     lastBlockMsg[qid] = now
     Print("Held back accepting %s (a party event quest) until the group is ready.", ER.QuestTitle(qid))
   end
-  if not s or s.qid ~= qid then
-    if s and s.mine then ER.Cancel() end
-    if not s or s.mine then
-      local title = Plain(GetTitleText())
-      ER.Begin(qid, type(title) == "string" and title ~= "" and title or nil)
-    end
-  end
-  ER.ShowWindow()
+  local title = Plain(GetTitleText())
+  ER.Begin(qid, type(title) == "string" and title ~= "" and title or nil)
 end
 
 AcceptQuest = function(...)
@@ -356,28 +400,29 @@ end
 -- Starts on its own once everyone is ready (or after Start anyway, when the page reopens).
 -- Called from ER.Refresh, which every state change goes through.
 function ER.CheckAuto()
-  local s = ER.session
-  if not (s and s.mine) or s.go or s.starting then return end
-  if ER.AllReady() or s.startOnOpen then
-    s.starting = true
-    ER.StartEscort()
-    s.starting = nil
+  for _, s in ipairs(ER.Running()) do
+    if s.mine and not s.go and not s.starting and (ER.AllReady(s) or s.startOnOpen) then
+      s.starting = true
+      ER.StartEscort(s)
+      s.starting = nil
+    end
   end
 end
 
--- Start without everyone ready, after a Yes on the warning.
+-- Start without everyone ready, after a Yes on the warning. The check rides along as data.
 StaticPopupDialogs.ESCORTREADY_START_ANYWAY = {
-  text = "Not everyone is ready (%s).\n\nStart the party event quest anyway? The NPC won't talk to anyone until it's over.",
+  text = "Not everyone is ready for %s (%s).\n\nStart it anyway? The NPC won't talk to anyone until it's over.",
   button1 = YES,
   button2 = NO,
-  OnAccept = function()
-    local s = ER.session
-    if s and s.mine and not s.go then
+  OnAccept = function(self, data)
+    local s = data or (self and self.data)
+    if s and s.mine and not s.go and ER.sessions[s.qid] == s then
       s.startOnOpen = true
       s.anyway = true -- for the party chat line (ER.AnnounceStart)
-      s.closed = true -- the window stays shut from here; the gate and chat carry on
-      ER.HideWindow()
-      ER.StartEscort()
+      s.closed = true -- the panel stays shut from here; the gate and chat carry on
+      ER.HidePanel(s)
+      ER.StartEscort(s)
+      ER.Refresh()
     end
   end,
   timeout = 0,
@@ -387,11 +432,10 @@ StaticPopupDialogs.ESCORTREADY_START_ANYWAY = {
   preferredIndex = 3,
 }
 
-function ER.StartAnyway()
-  local s = ER.session
+function ER.StartAnyway(s)
   if not (s and s.mine) or s.go then return end
-  local ready, _, total = ER.Counts()
-  StaticPopup_Show("ESCORTREADY_START_ANYWAY", ("%d/%d"):format(ready, total))
+  local ready, _, total = ER.Counts(s)
+  StaticPopup_Show("ESCORTREADY_START_ANYWAY", s.title, ("%d/%d"):format(ready, total), s)
 end
 
 ---------------------------------------------------------------------------
@@ -400,39 +444,43 @@ end
 -- party members with the addon get the window and their ticks come back.
 -- Solo, or "as a party member": a local window with made-up members, nothing sent.
 ---------------------------------------------------------------------------
-local TEST_QID = 309 -- Protecting the Shipment, only for its title
+-- Each test press adds another check (up to 4 at once), so the side-by-side panels can be
+-- tried too. These quests only lend their titles.
+local TEST_QIDS = { 309, 1144, 863, 4021 } -- vanilla escorts, for their titles only
 
 function ER.Test(asStarter)
-  if ER.session and not ER.session.test then
-    Print("A real party check is running. Cancel it first.")
+  local qid, n
+  for i, id in ipairs(TEST_QIDS) do
+    if not ER.sessions[id] then qid, n = id, i; break end
+  end
+  if not qid then
+    Print("Four test checks are already up. Close or cancel one first.")
     return
   end
-  if ER.session then ER.Cancel() end
   local me = ER.Me()
+  local title = ("[Test%s] %s"):format(n > 1 and (" " .. n) or "", ER.QuestTitle(qid))
 
   if asStarter and ER.Channel() then
-    local s = NewSession(TEST_QID, "[Test] " .. ER.QuestTitle(TEST_QID), me)
+    local s = NewSession(qid, title, me)
     s.test, s.live = true, true
     Member(s, me).state = "ready"
-    Member(s, me).status = ER.MyStatus(TEST_QID)
-    ER.Send(("Q^%d^%s^T"):format(s.qid, s.title:gsub("%^", "")))
-    ER.Send(("R^%d^ready^%s"):format(s.qid, Member(s, me).status))
-    ER.ShowWindow()
+    Member(s, me).status = ER.MyStatus(qid)
+    ER.Send(("Q^%d^%s^T"):format(s.qid, s.title:gsub("%^", "")), s)
+    ER.Send(("R^%d^ready^%s"):format(s.qid, Member(s, me).status), s)
+    ER.ShowWindow(s)
     ER.Refresh()
     return
   end
 
   local leader = asStarter and me or "Testleader"
   local roster = asStarter and { me, "Dummyone", "Dummytwo" } or { me, "Testleader", "Dummyone" }
-  local s = { qid = TEST_QID, title = "[Test] " .. ER.QuestTitle(TEST_QID), leader = leader,
-    mine = asStarter, t0 = GetTime(), members = {}, test = true, roster = roster }
-  for _, n in ipairs(roster) do s.members[n] = { state = "wait", t = GetTime() } end
+  local s = NewSession(qid, title, leader, roster)
+  s.mine, s.test = asStarter, true
   s.members[leader].state = "ready"
-  s.members[me].status = ER.MyStatus(TEST_QID)
+  s.members[me].status = ER.MyStatus(qid)
   if not asStarter then
     s.members[me].state = s.members[me].status == "done" and "ready" or "seen"
   end
-  ER.session = s
 
   -- scripted replies: name, delay, state, status. A "done" member is ready at once.
   local script = asStarter and {
@@ -443,7 +491,7 @@ function ER.Test(asStarter)
   }
   for _, step in ipairs(script) do
     C_Timer.After(step[2], function()
-      if ER.session ~= s then return end
+      if ER.sessions[s.qid] ~= s then return end
       s.members[step[1]].state, s.members[step[1]].status = step[3], step[4]
       ER.Refresh()
     end)
@@ -451,7 +499,7 @@ function ER.Test(asStarter)
   if not asStarter then
     pcall(PlaySound, SOUNDKIT and SOUNDKIT.READY_CHECK or 8960, "Master")
   end
-  ER.ShowWindow()
+  ER.ShowWindow(s)
   ER.Refresh()
 end
 
@@ -464,17 +512,35 @@ local function OnMessage(msg, sender)
   local kind, a, b, c = strsplit("^", msg, 4)
   local qid = tonumber(a)
   if not qid then return end
-  local s = ER.session
+  local s = ER.sessions[qid]
 
   if kind == "L" then
     if b and b ~= "" then ER.Learn(b, true, qid > 0 and qid or nil) end
     return
   end
-  if s and s.test and not s.live then ER.Cancel(true); s = nil end -- a real message beats a local test
+  if s and not s.live and s.roster then -- a local test on the same quest gives way to a real check
+    ER.Cancel(s, true); s = nil
+  end
   if kind == "Q" then
-    if s and s.qid == qid and s.leader ~= sender then return end -- someone else got there first
-    if s and s.qid ~= qid and s.mine and not s.test then return end -- I'm running a different one
-    if s and s.mine and s.test then ER.Cancel() end
+    -- Two players started a check on this quest at the same moment, before either heard the
+    -- other. Every copy keeps the lower name as the starter (ER.Rank), so they all agree.
+    if s and s.leader ~= sender then
+      if Rank(sender) >= Rank(s.leader) then return end -- the check I have wins
+      if s.mine then
+        -- theirs wins: I become a party member of it, still ready (I wanted it started)
+        s.leader, s.mine = sender, false
+        s.startOnOpen, s.anyway, s.toldReopen = nil, nil, nil
+        pcall(StaticPopup_Hide, "ESCORTREADY_START_ANYWAY", s)
+        Member(s, ER.Me()).state = "ready"
+        ER.Send(("R^%d^ready^%s"):format(qid, Member(s, ER.Me()).status or ER.MyStatus(qid)), s)
+        Print("%s started a check for %s at the same moment. Theirs goes ahead and you're marked ready.", sender, s.title)
+      else
+        s.leader = sender
+      end
+      Member(s, sender).state = "ready"
+      ER.Refresh()
+      return
+    end
     s = NewSession(qid, (b and b ~= "") and b or ER.QuestTitle(qid), sender)
     if c == "T" then s.test, s.live = true, true end
     Member(s, sender).state = "ready"
@@ -482,26 +548,25 @@ local function OnMessage(msg, sender)
     me.status = ER.MyStatus(qid)
     -- already completed: nothing to pick up, so ready from the start (Not ready still works)
     me.state = me.status == "done" and "ready" or "seen"
-    ER.Send(("R^%d^%s^%s"):format(qid, me.state, me.status))
+    ER.Send(("R^%d^%s^%s"):format(qid, me.state, me.status), s)
     if me.status == "done" then
-      -- nothing for me to do: ready without a window or sound (/er show opens it)
+      -- nothing for me to do: ready without a panel or sound (/er show opens it)
       Print("%s is starting %s. You've already completed it, so you're marked ready.", sender, s.title)
     else
-      ER.ShowWindow()
+      ER.ShowWindow(s)
       pcall(PlaySound, SOUNDKIT and SOUNDKIT.READY_CHECK or 8960, "Master")
       if FlashClientIcon then pcall(FlashClientIcon) end
     end
-  elseif not s or s.qid ~= qid then
+  elseif not s then
     return
   elseif kind == "R" then
     local m = Member(s, sender)
     m.state = (b == "ready" or b == "notready" or b == "seen") and b or "seen"
     m.status = c
-    -- a late joiner who missed the Q: answer with mine so they see me
   elseif kind == "C" and sender == s.leader then
-    Print("%s cancelled the party check.", sender)
-    ER.session = nil
-    ER.HideWindow()
+    Print("%s cancelled the party check for %s.", sender, s.title)
+    ER.Cancel(s, true)
+    return
   elseif kind == "G" and sender == s.leader then
     -- Started. The check ends here; only a 30 s window to say yes to the game's join
     -- prompt is kept (if I ticked ready), so a later start of this quest gets a new check.
@@ -714,7 +779,11 @@ f:SetScript("OnEvent", function(_, event, ...)
     local prefix, msg, _, sender = ...
     if Plain(prefix) == ER.PREFIX and Plain(msg) then OnMessage(msg, sender) end
   elseif event == "GROUP_ROSTER_UPDATE" then
-    if ER.session and not ER.session.roster and not ER.Channel() then ER.Cancel(true) end
+    if not ER.Channel() then
+      for _, s in ipairs(ER.Running()) do
+        if not s.roster then ER.Cancel(s, true) end -- left the group; local tests stay
+      end
+    end
     ER.Refresh()
   elseif event == "QUEST_DETAIL" then
     ER.LogDetail()
@@ -725,12 +794,12 @@ f:SetScript("OnEvent", function(_, event, ...)
     local a, b = ...
     local qid = Plain(b) or Plain(a) -- (questID) on current clients, (logIndex, questID) on old ones
     if type(qid) == "number" then ER.MatchLearned(qid, ER.QuestTitle(qid)) end -- joined from the prompt
-    local s = ER.session
-    if s and qid == s.qid then
+    local s = type(qid) == "number" and ER.sessions[qid]
+    if s then
       if s.mine and not s.go then
         -- accepted some other way (shift-click past the gate): still tell the group
         s.go = true
-        ER.Send(("G^%d"):format(s.qid))
+        ER.Send(("G^%d"):format(s.qid), s)
       end
       ER.EndCheck(s)
     end
@@ -742,8 +811,12 @@ f:SetScript("OnEvent", function(_, event, ...)
     ER.rcSeen = GetTime()
     -- the starter of a ready check counts as ready (the game marks them so, with no confirm)
     local who = Norm((...))
-    local s = ER.session
-    if s and who and s.members[who] then s.members[who].state = "ready"; s.members[who].rc = true; ER.Refresh() end
+    local changed
+    for _, s in ipairs(ER.order) do
+      local m = who and s.members[who]
+      if ByReadyCheck(m) then m.state, m.rc, m.noaddon = "ready", true, true; changed = true end
+    end
+    if changed then ER.Refresh() end
   elseif event == "READY_CHECK_CONFIRM" then
     local unit, isReady = ...
     ER.OnReadyConfirm(Plain(unit), Plain(isReady))
@@ -752,19 +825,19 @@ end)
 
 -- Ticks: no-reply members become "no addon", sessions time out.
 C_Timer.NewTicker(1, function()
-  local s = ER.session
-  if not s then return end
-  local now = GetTime()
-  if now - s.t0 > ER.TIMEOUT then
-    Print("Party check for %s timed out.", s.title)
-    ER.Cancel()
-    return
-  end
-  local changed
-  for _, m in pairs(s.members) do
-    if m.state == "wait" and now - m.t > ER.NOADDON then
-      m.state, m.noaddon = "noaddon", true -- noaddon stays set after a ready-check answer
-      changed = true
+  if #ER.order == 0 then return end
+  local now, changed = GetTime(), false
+  for _, s in ipairs(ER.Running()) do
+    if now - s.t0 > ER.TIMEOUT then
+      Print("Party check for %s timed out.", s.title)
+      ER.Cancel(s)
+    else
+      for _, m in pairs(s.members) do
+        if m.state == "wait" and now - m.t > ER.NOADDON then
+          m.state, m.noaddon = "noaddon", true -- noaddon stays set after a ready-check answer
+          changed = true
+        end
+      end
     end
   end
   if changed then ER.Refresh() end
@@ -819,9 +892,9 @@ SlashCmdList.ESCORTREADY = function(input)
   elseif cmd == "config" or cmd == "settings" then
     ER.OpenSettings()
   elseif cmd == "show" then
-    if ER.session then ER.ShowWindow() else Print("No party check running.") end
+    if #ER.order > 0 then ER.ShowWindow() else Print("No party check running.") end
   elseif cmd == "cancel" then
-    ER.Cancel()
+    ER.CancelAll()
   else
     Print("Gate %s, auto-join %s, auto start line %s, scale %.2f.", OnOff(char.enabled), OnOff(char.autoJoin), OnOff(char.autoGossip), char.scale)
     Print("/er on | off - the party check gate on the Accept button")

@@ -194,7 +194,8 @@ function ER.BuildSettings()
   devNote:SetJustifyH("LEFT")
   devNote:SetText("No quest is ever accepted. As the starter in a group, a [Test] check goes to your group "
     .. "like a ready check: anyone with the addon gets the window and can tick ready. Solo, or as a "
-    .. "party member, it opens locally with made-up members who tick ready over a few seconds.")
+    .. "party member, it opens locally with made-up members who tick ready over a few seconds. "
+    .. "Each press adds another check (up to four), side by side.")
 
   local t1 = Button(p, "Test as the starter")
   t1:SetPoint("TOPLEFT", devNote, "BOTTOMLEFT", 0, -8)
