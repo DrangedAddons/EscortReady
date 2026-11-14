@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.6.1
+
+- The ready window closes by itself on everyone's screen as soon as the whole group is ready. Party members get a chat line saying the starter is starting the quest. `/er show` brings the window back.
+
 ## 0.6.0
 
 - Learned quests now get their quest ID, not just the title: from your quest log when you join from the prompt, from the quest page the next time anyone opens it, or from a party member who has it.

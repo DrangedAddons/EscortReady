@@ -305,6 +305,14 @@ end
 
 function ER.Refresh()
   ER.CheckAuto()
+  -- Everyone ready: the window has done its job, so it closes on every copy (a short beat so
+  -- the last tick shows). The gate and chat carry on; /er show brings it back.
+  local s = ER.session
+  if s and not s.closed and ER.AllReady() then
+    s.closed = true
+    if not s.mine then ER.Print("Everyone's ready. %s starts the quest.", s.leader) end
+    C_Timer.After(0.6, function() if ER.session == s then ER.HideWindow() end end)
+  end
   UpdateGate()
   UpdateWindow()
 end
