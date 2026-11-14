@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.2
+
+- Fixed: after a quest started, the check stayed marked "started" for up to 5 minutes, and a new start of the same quest in that time went through with no ready check (a failed escort, or someone else going next). Now the check ends the moment the quest starts, and every start gets a fresh ready check.
+- Players who have already completed the quest are marked ready without the window popping up or the ready-check sound; they get a chat line instead. `/er show` still opens it.
+
 ## 0.6.1
 
 - The ready window closes by itself on everyone's screen as soon as the whole group is ready. Party members get a chat line saying the starter is starting the quest. `/er show` brings the window back.

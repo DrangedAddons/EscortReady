@@ -175,11 +175,19 @@ function ER.StartEscort()
     return
   end
   s.go = true
-  s.closed = true
-  ER.HideWindow()
   ER.gossipUntil = GetTime() + ER.GOSSIP_WINDOW
   ER.Send(("G^%d"):format(s.qid))
   ER.RealAccept()
+  ER.EndCheck(s)
+end
+
+-- A check is over the moment its quest starts. Nothing of it is kept, so if the quest fails
+-- or someone goes again, the next accept gets a fresh ready check.
+function ER.EndCheck(s)
+  if s and ER.session ~= s then return end
+  ER.session = nil
+  ER.HideWindow()
+  ER.Refresh()
 end
 
 ---------------------------------------------------------------------------
@@ -203,8 +211,7 @@ local function HeldQuest()
   if not (char and char.enabled) or not ER.Channel() then return nil end
   local qid = Plain(GetQuestID())
   if type(qid) ~= "number" or qid <= 0 or not ER.IsEscort(qid) then return nil end
-  local s = ER.session
-  if s and s.qid == qid and s.go then return nil end -- already started: let it through
+  -- Always held, every time. EscortReady's own accept goes through ER.RealAccept, never here.
   return qid
 end
 ER.HeldQuest = HeldQuest
@@ -369,9 +376,14 @@ local function OnMessage(msg, sender)
     -- already completed: nothing to pick up, so ready from the start (Not ready still works)
     me.state = me.status == "done" and "ready" or "seen"
     ER.Send(("R^%d^%s^%s"):format(qid, me.state, me.status))
-    ER.ShowWindow()
-    pcall(PlaySound, SOUNDKIT and SOUNDKIT.READY_CHECK or 8960, "Master")
-    if FlashClientIcon then pcall(FlashClientIcon) end
+    if me.status == "done" then
+      -- nothing for me to do: ready without a window or sound (/er show opens it)
+      Print("%s is starting %s. You've already completed it, so you're marked ready.", sender, s.title)
+    else
+      ER.ShowWindow()
+      pcall(PlaySound, SOUNDKIT and SOUNDKIT.READY_CHECK or 8960, "Master")
+      if FlashClientIcon then pcall(FlashClientIcon) end
+    end
   elseif not s or s.qid ~= qid then
     return
   elseif kind == "R" then
@@ -384,14 +396,17 @@ local function OnMessage(msg, sender)
     ER.session = nil
     ER.HideWindow()
   elseif kind == "G" and sender == s.leader then
-    s.go = true
-    ER.goUntil = GetTime() + 30
+    -- Started. The check ends here; only a 30 s window to say yes to the game's join
+    -- prompt is kept (if I ticked ready), so a later start of this quest gets a new check.
+    local ready = Member(s, ER.Me()).state == "ready"
     if s.test then
       Print("Test: %s started the quest.", sender)
-      C_Timer.After(3, function() if ER.session == s then ER.Cancel(true) end end)
-    elseif Member(s, ER.Me()).state ~= "ready" then
-      Print("%s started %s.", sender, s.title)
+    else
+      ER.join = { qid = s.qid, title = s.title, ready = ready, untilT = GetTime() + 30 }
+      if not ready then Print("%s started %s.", sender, s.title) end
     end
+    ER.EndCheck(s)
+    return
   end
   ER.Refresh()
 end
@@ -518,13 +533,12 @@ local function OnAcceptConfirm(...)
   local _, title = ...
   title = Plain(title)
   if type(title) == "string" then ER.Learn(title) end
-  local s = ER.session
-  if not (s and s.go and ER.char.autoJoin) then return end
-  if not (ER.goUntil and GetTime() < ER.goUntil) then return end
-  if Member(s, ER.Me()).state ~= "ready" then return end
+  local j = ER.join
+  if not (j and j.ready and ER.char.autoJoin and GetTime() < j.untilT) then return end
+  ER.join = nil -- one prompt, one yes
   ConfirmAcceptQuest()
   StaticPopup_Hide("QUEST_ACCEPT")
-  Print("Joined %s.", s.title)
+  Print("Joined %s.", j.title)
 end
 
 local function OnGossip()
@@ -602,11 +616,11 @@ f:SetScript("OnEvent", function(_, event, ...)
     local s = ER.session
     if s and qid == s.qid then
       if s.mine and not s.go then
-        -- accepted some other way (a keybind, another addon): still tell the group
+        -- accepted some other way (shift-click past the gate): still tell the group
         s.go = true
         ER.Send(("G^%d"):format(s.qid))
       end
-      C_Timer.After(3, function() if ER.session == s then ER.Cancel(true) end end)
+      ER.EndCheck(s)
     end
   elseif event == "QUEST_ACCEPT_CONFIRM" then
     OnAcceptConfirm(...)
