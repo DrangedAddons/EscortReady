@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.10.0
+
+- When anyone in the group doesn't have EscortReady, the start also goes in party chat, since they can't get the addon's alert:
+  - Start anyway: "[EscortReady] Started <quest> without waiting for everyone. The quest giver is busy until it's over."
+  - Everyone ready: "[EscortReady] Everyone's ready: <quest> has started."
+- Nothing is posted when everyone has the addon. The live group test posts it too, with [Test] in the quest name.
+
 ## 0.9.0
 
 - Players without EscortReady can answer now. When someone in the group shows "No addon", the starter's window gets a **Ready check** button. It posts one party chat line naming the quest (the quest giver will be busy until it's over, hand in or pick it up first, then hit Ready) and starts the game's own ready check.

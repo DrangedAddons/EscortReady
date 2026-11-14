@@ -157,7 +157,7 @@ function ER.HasNoAddon()
   if not s then return false end
   for _, n in ipairs(ER.Roster()) do
     local m = s.members[n]
-    if m and m.state == "noaddon" then return true end
+    if m and (m.state == "noaddon" or m.noaddon) then return true end
   end
   return false
 end
@@ -235,6 +235,7 @@ function ER.StartEscort()
   if s.test then
     s.go = true
     ER.Send(("G^%d"):format(s.qid))
+    if s.live then ER.AnnounceStart(s) end -- live group test: same party line, title says [Test]
     Print("Test: this is where the quest would be accepted.")
     ER.EndCheck(s, not s.closed)
     return
@@ -254,8 +255,23 @@ function ER.StartEscort()
   s.go = true
   ER.gossipUntil = GetTime() + ER.GOSSIP_WINDOW
   ER.Send(("G^%d"):format(s.qid))
+  ER.AnnounceStart(s)
   ER.RealAccept()
   ER.EndCheck(s, not s.closed) -- after Start anyway the window is already shut: keep it shut
+end
+
+-- Players without the addon can't get the "started" message or the alert, so when anyone in
+-- the group has no addon, the start goes in party chat too. Nothing when all have the addon.
+function ER.AnnounceStart(s)
+  if not s or ER.session ~= s or not ER.HasNoAddon() then return end
+  local ch = ER.Channel()
+  if not ch or not SendChatMessage then return end
+  local text = s.anyway
+    and ("[EscortReady] Started %s without waiting for everyone. The quest giver is busy until it's over."):format(s.title)
+    or ("[EscortReady] Everyone's ready: %s has started."):format(s.title)
+  if #text > 255 then text = text:sub(1, 252) .. "..." end
+  local ok, err = pcall(SendChatMessage, text, ch)
+  if not ok then Print("Couldn't post the party message (%s).", tostring(err)) end
 end
 
 -- The raid-warning banner in the middle of the screen, its sound, and a chat line.
@@ -358,6 +374,7 @@ StaticPopupDialogs.ESCORTREADY_START_ANYWAY = {
     local s = ER.session
     if s and s.mine and not s.go then
       s.startOnOpen = true
+      s.anyway = true -- for the party chat line (ER.AnnounceStart)
       s.closed = true -- the window stays shut from here; the gate and chat carry on
       ER.HideWindow()
       ER.StartEscort()
@@ -745,7 +762,10 @@ C_Timer.NewTicker(1, function()
   end
   local changed
   for _, m in pairs(s.members) do
-    if m.state == "wait" and now - m.t > ER.NOADDON then m.state = "noaddon"; changed = true end
+    if m.state == "wait" and now - m.t > ER.NOADDON then
+      m.state, m.noaddon = "noaddon", true -- noaddon stays set after a ready-check answer
+      changed = true
+    end
   end
   if changed then ER.Refresh() end
 end)
