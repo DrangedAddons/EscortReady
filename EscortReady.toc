@@ -2,7 +2,7 @@
 ## Title: EscortReady
 ## Notes: Party event quests (escorts, fights, anything that ties up the NPC): in a group, nobody starts one until everyone has handed in and ticked ready. Holds back auto-accept addons too.
 ## Author: Dranged
-## Version: 0.7.0
+## Version: 0.8.0
 ## OptionalDeps: Questie, QuestieDB, EllesmereUI
 ## X-DrangedAddons-Games: _forever_
 ## SavedVariables: EscortReadyDB

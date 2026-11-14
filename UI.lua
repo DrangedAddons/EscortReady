@@ -230,12 +230,15 @@ end
 local function UpdateWindow()
   if not (win and win:IsShown()) then return end
   local s = ER.session
+  -- no check running, but one just started its quest: show that one counting down to close
+  local closing = not s and ER.closing
+  if closing then s = closing.s end
   if not s then win:Hide(); return end
 
   win.quest:SetText(s.title)
   win.by:SetText(s.mine and "You started this check." or (s.leader .. " wants to start it."))
 
-  local names = ER.Roster()
+  local names = s.roster or ER.Roster()
   for i, n in ipairs(names) do
     local r = Row(i)
     local m = s.members[n] or { state = "wait" }
@@ -251,7 +254,13 @@ local function UpdateWindow()
 
   local ready, users, total = ER.Counts()
   local all = ER.AllReady()
-  if s.mine then
+  if closing then
+    -- nothing left to click: just the result and the countdown
+    win.ready:Hide(); win.notready:Hide(); win.anyway:Hide(); win.cancel:Hide()
+    local left = math.max(1, math.ceil(closing.untilT - GetTime()))
+    win.foot:SetText(GREEN .. "Everyone is ready. " .. (s.mine and "The quest has started."
+      or (s.leader .. " started the quest.")) .. "|r\n" .. ("This window closes in %d..."):format(left))
+  elseif s.mine then
     win.ready:Hide(); win.notready:Hide()
     win.anyway:Show(); win.cancel:Show()
     win.anyway:SetEnabled(not (all or s.go or s.startOnOpen))
@@ -303,16 +312,28 @@ function ER.HideWindow()
   if win then win:Hide() end
 end
 
+-- The quest has started (the check is already over): the window stays up ER.COUNTDOWN seconds
+-- showing the final roster and "closes in 3... 2... 1", then closes. Closing it early (X or
+-- Escape) is fine. A new check starting in the meantime takes the window over.
+function ER.LingerWindow(s)
+  s.go = true
+  local c = { s = s, untilT = GetTime() + ER.COUNTDOWN }
+  ER.closing = c
+  ER.ShowWindow()
+  C_Timer.NewTicker(0.2, function(t)
+    if ER.closing ~= c then t:Cancel(); return end
+    if GetTime() >= c.untilT then
+      t:Cancel()
+      ER.closing = nil
+      if not ER.session then ER.HideWindow() end
+    else
+      UpdateWindow()
+    end
+  end)
+end
+
 function ER.Refresh()
   ER.CheckAuto()
-  -- Everyone ready: the window has done its job, so it closes on every copy (a short beat so
-  -- the last tick shows). The gate and chat carry on; /er show brings it back.
-  local s = ER.session
-  if s and not s.closed and ER.AllReady() then
-    s.closed = true
-    if not s.mine then ER.Print("Everyone's ready. %s starts the quest.", s.leader) end
-    C_Timer.After(0.6, function() if ER.session == s then ER.HideWindow() end end)
-  end
   UpdateGate()
   UpdateWindow()
 end

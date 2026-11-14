@@ -13,6 +13,7 @@ ER.PREFIX = "EscortReady"
 ER.TIMEOUT = 300   -- a session closes itself after 5 minutes
 ER.NOADDON = 4     -- seconds without a reply before a member counts as "no addon"
 ER.GOSSIP_WINDOW = 30
+ER.COUNTDOWN = 3   -- seconds the window stays up after the quest starts, counting down
 
 local function Print(fmt, ...)
   DEFAULT_CHAT_FRAME:AddMessage("|cffe0b040EscortReady|r: " .. (select("#", ...) > 0 and fmt:format(...) or fmt))
@@ -159,7 +160,7 @@ function ER.StartEscort()
     s.go = true
     ER.Send(("G^%d"):format(s.qid))
     Print("Test: this is where the quest would be accepted.")
-    ER.Cancel(true)
+    ER.EndCheck(s, not s.closed)
     return
   end
   -- ER.detailQid is set on QUEST_DETAIL, possibly before QuestFrame itself has shown
@@ -178,7 +179,7 @@ function ER.StartEscort()
   ER.gossipUntil = GetTime() + ER.GOSSIP_WINDOW
   ER.Send(("G^%d"):format(s.qid))
   ER.RealAccept()
-  ER.EndCheck(s)
+  ER.EndCheck(s, not s.closed) -- after Start anyway the window is already shut: keep it shut
 end
 
 -- The raid-warning banner in the middle of the screen, its sound, and a chat line.
@@ -194,10 +195,12 @@ end
 
 -- A check is over the moment its quest starts. Nothing of it is kept, so if the quest fails
 -- or someone goes again, the next accept gets a fresh ready check.
-function ER.EndCheck(s)
+-- linger: the window stays up ER.COUNTDOWN seconds saying the quest started, counting down
+-- to closing (ER.LingerWindow in UI.lua). The check itself is gone either way.
+function ER.EndCheck(s, linger)
   if s and ER.session ~= s then return end
   ER.session = nil
-  ER.HideWindow()
+  if linger and s then ER.LingerWindow(s) else ER.HideWindow() end
   ER.Refresh()
 end
 
@@ -418,7 +421,8 @@ local function OnMessage(msg, sender)
       -- Started without me (Start anyway, while I hadn't ticked or said Not ready): say so loudly.
       if not ready then ER.AlertStartedAnyway(sender, s.title) end
     end
-    ER.EndCheck(s)
+    -- ready players see "started" count down; anyone left behind got the alert instead
+    ER.EndCheck(s, ready and Member(s, ER.Me()).status ~= "done")
     return
   end
   ER.Refresh()

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.0
+
+- When everyone is ready the quest still starts straight away, but the window no longer vanishes in a flash. It stays up showing everyone ready and "The quest has started", counts down "This window closes in 3... 2... 1..." and closes itself. You can close it sooner with the X or Escape. (Most noticeable when everyone has already done the quest and is marked ready instantly.)
+- Start anyway still shuts the window at once.
+
 ## 0.7.0
 
 - When the starter uses Start anyway, party members who hadn't ticked Ready (or said Not ready) get an alert: a raid-warning banner in the middle of the screen, the raid-warning sound and a chat line saying who started the quest without waiting for them. Ready players and players who already completed it get no alert. The live group test shows it too.
