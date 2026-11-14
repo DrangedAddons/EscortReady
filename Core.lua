@@ -181,6 +181,17 @@ function ER.StartEscort()
   ER.EndCheck(s)
 end
 
+-- The raid-warning banner in the middle of the screen, its sound, and a chat line.
+function ER.AlertStartedAnyway(who, title)
+  local text = ("%s started %s without waiting for you."):format(who, title)
+  if RaidNotice_AddMessage and RaidWarningFrame then
+    pcall(RaidNotice_AddMessage, RaidWarningFrame, text, ChatTypeInfo and ChatTypeInfo.RAID_WARNING or { r = 1, g = 0.3, b = 0.1 })
+  end
+  pcall(PlaySound, SOUNDKIT and SOUNDKIT.RAID_WARNING or 8959, "Master")
+  if FlashClientIcon then pcall(FlashClientIcon) end
+  Print("|cffff4040%s|r", text)
+end
+
 -- A check is over the moment its quest starts. Nothing of it is kept, so if the quest fails
 -- or someone goes again, the next accept gets a fresh ready check.
 function ER.EndCheck(s)
@@ -401,9 +412,11 @@ local function OnMessage(msg, sender)
     local ready = Member(s, ER.Me()).state == "ready"
     if s.test then
       Print("Test: %s started the quest.", sender)
+      if not ready then ER.AlertStartedAnyway(sender, s.title) end -- title says [Test]
     else
       ER.join = { qid = s.qid, title = s.title, ready = ready, untilT = GetTime() + 30 }
-      if not ready then Print("%s started %s.", sender, s.title) end
+      -- Started without me (Start anyway, while I hadn't ticked or said Not ready): say so loudly.
+      if not ready then ER.AlertStartedAnyway(sender, s.title) end
     end
     ER.EndCheck(s)
     return

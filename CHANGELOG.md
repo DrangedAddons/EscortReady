@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.0
+
+- When the starter uses Start anyway, party members who hadn't ticked Ready (or said Not ready) get an alert: a raid-warning banner in the middle of the screen, the raid-warning sound and a chat line saying who started the quest without waiting for them. Ready players and players who already completed it get no alert. The live group test shows it too.
+
 ## 0.6.2
 
 - Fixed: after a quest started, the check stayed marked "started" for up to 5 minutes, and a new start of the same quest in that time went through with no ready check (a failed escort, or someone else going next). Now the check ends the moment the quest starts, and every start gets a fresh ready check.
