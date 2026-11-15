@@ -2,7 +2,7 @@
 
 ## 0.13.0
 
-- Never checks in battlegrounds or arenas. A 40-player Alterac Valley raid was getting a ready check for The Battle of Alterac.
+- New option **Also in battlegrounds and arenas** (off by default, per character, or `/er bg`). A 40-player Alterac Valley raid was getting a ready check for The Battle of Alterac; now battlegrounds aren't checked unless you tick it.
 - New option **Also in raid groups** (on by default, per character, or `/er raid`). Untick it and party event quests go through without a check while you're in a raid.
 
 ## 0.12.1
