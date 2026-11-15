@@ -48,7 +48,7 @@ end
 
 -- Is there a group to check? Not in a battleground or arena unless that option is on (off by
 -- default: their quests aren't party events and the raid is 40 strangers), not in a raid when
--- the raid option is off, and not alone in a group (everyone else left or is offline).
+-- the raid option is off (default), and not alone in a group (everyone else left or is offline).
 function ER.InPvP()
   local ok, inside, kind = pcall(IsInInstance)
   return ok and inside and (kind == "pvp" or kind == "arena") or false
@@ -57,7 +57,7 @@ end
 function ER.HasCompany()
   if not ER.Channel() then return false end
   if ER.InPvP() and not (ER.char and ER.char.pvp) then return false end
-  if IsInRaid() and ER.char and not ER.char.raid then return false end
+  if IsInRaid() and ER.char and not ER.char.inRaid then return false end
   local raid = IsInRaid()
   local n = raid and GetNumGroupMembers() or GetNumSubgroupMembers()
   for i = 1, n do
@@ -795,7 +795,8 @@ f:SetScript("OnEvent", function(_, event, ...)
     if char.enabled == nil then char.enabled = true end
     if char.autoJoin == nil then char.autoJoin = true end
     if char.autoGossip == nil then char.autoGossip = true end
-    if char.raid == nil then char.raid = true end
+    char.raid = nil -- 0.13.0 dev key, default was on
+    if char.inRaid == nil then char.inRaid = false end
     if char.pvp == nil then char.pvp = false end
     char.scale = char.scale or 1.25
     ER.db, ER.char = db, char
@@ -886,8 +887,8 @@ SlashCmdList.ESCORTREADY = function(input)
     char.autoJoin = not char.autoJoin
     Print("Join the party event quest when you ticked ready: %s.", OnOff(char.autoJoin))
   elseif cmd == "raid" then
-    char.raid = not char.raid
-    Print("Ready-check party event quests in a raid: %s.", OnOff(char.raid))
+    char.inRaid = not char.inRaid
+    Print("Ready-check party event quests in a raid: %s.", OnOff(char.inRaid))
   elseif cmd == "bg" or cmd == "pvp" then
     char.pvp = not char.pvp
     Print("Ready-check party event quests in battlegrounds and arenas: %s.", OnOff(char.pvp))
