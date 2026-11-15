@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.13.0
+
+- Never checks in battlegrounds or arenas. A 40-player Alterac Valley raid was getting a ready check for The Battle of Alterac.
+- New option **Also in raid groups** (on by default, per character, or `/er raid`). Untick it and party event quests go through without a check while you're in a raid.
+
 ## 0.12.1
 
 - Test checks no longer look at whether you've done the test quest (they borrow real vanilla escorts, which party members may have completed). Everyone is "not done" in a test, so everyone gets the panel and ticks ready by hand. Party members need 0.12.1 too.

@@ -145,8 +145,10 @@ function ER.BuildSettings()
     .. "These settings are for this character.")
 
   local c1 = Check(p, sub, "Ready-check party event quests in a group",
-    "Covers the Accept button on party event quests while you're in a group. Not when everyone else in the group is offline or gone.", "enabled")
-  local c2 = Check(p, c1, "Join the quest when I'm ready",
+    "Covers the Accept button on party event quests while you're in a group. Not when everyone else in the group is offline or gone, and never in battlegrounds or arenas.", "enabled")
+  local cRaid = Check(p, c1, "Also in raid groups",
+    "Untick to let party event quests through without a check while you're in a raid. Battlegrounds and arenas are never checked either way.", "raid")
+  local c2 = Check(p, cRaid, "Join the quest when I'm ready",
     "When the starter accepts, the game asks the group to join. Says yes for you if you ticked ready.", "autoJoin")
   local c3 = Check(p, c2, "Pick the NPC's start line after accepting",
     "Some of these quests need you to talk to the NPC again. If exactly one line looks like \"I'm ready\" or \"Let's go\", it's picked for you.", "autoGossip")

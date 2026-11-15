@@ -46,10 +46,17 @@ function ER.Channel()
   return nil
 end
 
--- Anyone else in the group who's online. Alone in a group (everyone else left or is
--- offline), nobody can be locked out by the quest giver, so there's nothing to check.
+-- Is there a group to check? Never in a battleground or arena (their quests aren't party
+-- events and the raid is 40 strangers), not in a raid when the raid option is off, and not
+-- alone in a group (everyone else left or is offline): nobody there to be locked out.
+function ER.InPvP()
+  local ok, inside, kind = pcall(IsInInstance)
+  return ok and inside and (kind == "pvp" or kind == "arena") or false
+end
+
 function ER.HasCompany()
-  if not ER.Channel() then return false end
+  if not ER.Channel() or ER.InPvP() then return false end
+  if IsInRaid() and ER.char and not ER.char.raid then return false end
   local raid = IsInRaid()
   local n = raid and GetNumGroupMembers() or GetNumSubgroupMembers()
   for i = 1, n do
@@ -787,6 +794,7 @@ f:SetScript("OnEvent", function(_, event, ...)
     if char.enabled == nil then char.enabled = true end
     if char.autoJoin == nil then char.autoJoin = true end
     if char.autoGossip == nil then char.autoGossip = true end
+    if char.raid == nil then char.raid = true end
     char.scale = char.scale or 1.25
     ER.db, ER.char = db, char
     pcall(C_ChatInfo.RegisterAddonMessagePrefix, ER.PREFIX)
@@ -795,9 +803,9 @@ f:SetScript("OnEvent", function(_, event, ...)
     local prefix, msg, _, sender = ...
     if Plain(prefix) == ER.PREFIX and Plain(msg) then OnMessage(msg, sender) end
   elseif event == "GROUP_ROSTER_UPDATE" then
-    if not ER.Channel() then
+    if not ER.Channel() or ER.InPvP() or (IsInRaid() and not ER.char.raid) then
       for _, s in ipairs(ER.Running()) do
-        if not s.roster then ER.Cancel(s, true) end -- left the group; local tests stay
+        if not s.roster then ER.Cancel(s, true) end -- left the group (or it became a raid with raids off); local tests stay
       end
     end
     ER.Refresh()
@@ -875,6 +883,9 @@ SlashCmdList.ESCORTREADY = function(input)
   elseif cmd == "join" then
     char.autoJoin = not char.autoJoin
     Print("Join the party event quest when you ticked ready: %s.", OnOff(char.autoJoin))
+  elseif cmd == "raid" then
+    char.raid = not char.raid
+    Print("Ready-check party event quests in a raid: %s. (Never in battlegrounds or arenas.)", OnOff(char.raid))
   elseif cmd == "gossip" then
     char.autoGossip = not char.autoGossip
     Print("Pick the NPC's start line after accepting: %s.", OnOff(char.autoGossip))
@@ -914,6 +925,7 @@ SlashCmdList.ESCORTREADY = function(input)
   else
     Print("Gate %s, auto-join %s, auto start line %s, scale %.2f.", OnOff(char.enabled), OnOff(char.autoJoin), OnOff(char.autoGossip), char.scale)
     Print("/er on | off - the party check gate on the Accept button")
+    Print("/er raid - also check in raid groups (never in battlegrounds)")
     Print("/er join - join the party event quest automatically once you ticked ready")
     Print("/er gossip - after starting, pick the NPC's \"I'm ready\" line if there's exactly one")
     Print("/er check <questID> | add <id> | not <id> | reset <id>")
