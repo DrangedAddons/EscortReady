@@ -20,6 +20,20 @@ local function Print(fmt, ...)
 end
 ER.Print = Print
 
+-- Informational chat lines (held back, joined, cancelled, learned...). Off with the
+-- "EscortReady messages in my chat" option; errors and replies to commands always print.
+local function Note(fmt, ...)
+  if ER.char and ER.char.chatInfo == false then return end
+  Print(fmt, ...)
+end
+ER.Note = Note
+
+-- An announcement option (all default on). Before the saved settings load, everything is on.
+local function Opt(key)
+  return not (ER.char and ER.char[key] == false)
+end
+ER.Opt = Opt
+
 local function Plain(v)
   if v == nil then return nil end
   if issecretvalue and issecretvalue(v) then return nil end
@@ -218,6 +232,7 @@ end
 -- answering. Once per check. Ready from them is taken as ready.
 function ER.AnnounceReadyCheck(s)
   if not s or s.announced or not ER.HasNoAddon(s) then return end -- all on the addon: no chat
+  if not Opt("chatCheck") then return end
   local ch = ER.Channel()
   if not ch or not SendChatMessage then return end
   s.announced = true
@@ -311,7 +326,7 @@ function ER.StartEscort(s)
     s.go = true
     ER.Send(("G^%d"):format(s.qid), s)
     if s.live then ER.AnnounceStart(s) end -- live group test: same party line, title says [Test]
-    Print("Test: this is where %s would be accepted.", s.title)
+    Note("Test: this is where %s would be accepted.", s.title)
     ER.EndCheck(s, not s.closed)
     return
   end
@@ -322,7 +337,7 @@ function ER.StartEscort(s)
     s.startOnOpen = true
     if not s.toldReopen then
       s.toldReopen = true
-      Print("Everyone's set for %s. Talk to the quest giver again and the quest starts.", s.title)
+      Note("Everyone's set for %s. Talk to the quest giver again and the quest starts.", s.title)
     end
     return
   end
@@ -338,6 +353,7 @@ end
 -- the group has no addon, the start goes in party chat too. Nothing when all have the addon.
 function ER.AnnounceStart(s)
   if not s or ER.sessions[s.qid] ~= s or not ER.HasNoAddon(s) then return end
+  if not Opt("chatStart") then return end
   local ch = ER.Channel()
   if not ch or not SendChatMessage then return end
   local text = s.anyway
@@ -351,12 +367,14 @@ end
 -- The raid-warning banner in the middle of the screen, its sound, and a chat line.
 function ER.AlertStartedAnyway(who, title)
   local text = ("%s started %s without waiting for you."):format(who, title)
-  if RaidNotice_AddMessage and RaidWarningFrame then
-    pcall(RaidNotice_AddMessage, RaidWarningFrame, text, ChatTypeInfo and ChatTypeInfo.RAID_WARNING or { r = 1, g = 0.3, b = 0.1 })
+  if Opt("alert") then
+    if RaidNotice_AddMessage and RaidWarningFrame then
+      pcall(RaidNotice_AddMessage, RaidWarningFrame, text, ChatTypeInfo and ChatTypeInfo.RAID_WARNING or { r = 1, g = 0.3, b = 0.1 })
+    end
+    pcall(PlaySound, SOUNDKIT and SOUNDKIT.RAID_WARNING or 8959, "Master")
+    if FlashClientIcon then pcall(FlashClientIcon) end
   end
-  pcall(PlaySound, SOUNDKIT and SOUNDKIT.RAID_WARNING or 8959, "Master")
-  if FlashClientIcon then pcall(FlashClientIcon) end
-  Print("|cffff4040%s|r", text)
+  Note("|cffff4040%s|r", text)
 end
 
 -- A check is over the moment its quest starts. Nothing of it is kept, so if the quest fails
@@ -403,7 +421,7 @@ local function Held(qid)
   local now = GetTime()
   if not lastBlockMsg[qid] or now - lastBlockMsg[qid] > 10 then
     lastBlockMsg[qid] = now
-    Print("Held back accepting %s (a party event quest) until the group is ready.", ER.QuestTitle(qid))
+    Note("Held back accepting %s (a party event quest) until the group is ready.", ER.QuestTitle(qid))
   end
   local title = Plain(GetTitleText())
   ER.Begin(qid, type(title) == "string" and title ~= "" and title or nil)
@@ -520,7 +538,7 @@ function ER.Test(asStarter)
       ER.Refresh()
     end)
   end
-  if not asStarter then
+  if not asStarter and Opt("checkSound") then
     pcall(PlaySound, SOUNDKIT and SOUNDKIT.READY_CHECK or 8960, "Master")
   end
   ER.ShowWindow(s)
@@ -557,7 +575,7 @@ local function OnMessage(msg, sender)
         pcall(StaticPopup_Hide, "ESCORTREADY_START_ANYWAY", s)
         Member(s, ER.Me()).state = "ready"
         ER.Send(("R^%d^ready^%s"):format(qid, Member(s, ER.Me()).status or ER.MyStatus(qid, s)), s)
-        Print("%s started a check for %s at the same moment. Theirs goes ahead and you're marked ready.", sender, s.title)
+        Note("%s started a check for %s at the same moment. Theirs goes ahead and you're marked ready.", sender, s.title)
       else
         s.leader = sender
       end
@@ -575,11 +593,13 @@ local function OnMessage(msg, sender)
     ER.Send(("R^%d^%s^%s"):format(qid, me.state, me.status), s)
     if me.status == "done" then
       -- nothing for me to do: ready without a panel or sound (/er show opens it)
-      Print("%s is starting %s. You've already completed it, so you're marked ready.", sender, s.title)
+      Note("%s is starting %s. You've already completed it, so you're marked ready.", sender, s.title)
     else
       ER.ShowWindow(s)
-      pcall(PlaySound, SOUNDKIT and SOUNDKIT.READY_CHECK or 8960, "Master")
-      if FlashClientIcon then pcall(FlashClientIcon) end
+      if Opt("checkSound") then
+        pcall(PlaySound, SOUNDKIT and SOUNDKIT.READY_CHECK or 8960, "Master")
+        if FlashClientIcon then pcall(FlashClientIcon) end
+      end
     end
   elseif not s then
     return
@@ -588,7 +608,7 @@ local function OnMessage(msg, sender)
     m.state = (b == "ready" or b == "notready" or b == "seen") and b or "seen"
     m.status = c
   elseif kind == "C" and sender == s.leader then
-    Print("%s cancelled the party check for %s.", sender, s.title)
+    Note("%s cancelled the party check for %s.", sender, s.title)
     ER.Cancel(s, true)
     return
   elseif kind == "G" and sender == s.leader then
@@ -596,7 +616,7 @@ local function OnMessage(msg, sender)
     -- prompt is kept (if I ticked ready), so a later start of this quest gets a new check.
     local ready = Member(s, ER.Me()).state == "ready"
     if s.test then
-      Print("Test: %s started the quest.", sender)
+      Note("Test: %s started the quest.", sender)
       if not ready then ER.AlertStartedAnyway(sender, s.title) end -- title says [Test]
     else
       ER.join = { qid = s.qid, title = s.title, ready = ready, untilT = GetTime() + 30 }
@@ -629,8 +649,8 @@ function ER.Learn(title, quiet, qid)
   if new then db.learned[key] = title end
   if qid and qid > 0 then ER.LearnId(qid, title, quiet) end
   if new and not quiet then
-    Print("Learned %s as a party event quest. It'll be held for a ready check from now on.", title)
-    ER.Send(("L^%d^%s"):format(qid or 0, (title:gsub("%^", ""))))
+    Note("Learned %s as a party event quest. It'll be held for a ready check from now on.", title)
+    if Opt("share") then ER.Send(("L^%d^%s"):format(qid or 0, (title:gsub("%^", "")))) end
   end
 end
 
@@ -642,7 +662,7 @@ function ER.LearnId(qid, title, quiet)
   db.learnedIds[qid] = title or ER.QuestTitle(qid)
   local key = ER.LearnKey(title)
   if key and not db.learned[key] then db.learned[key] = title end
-  if not quiet then
+  if not quiet and Opt("share") then
     ER.Send(("L^%d^%s"):format(qid, (tostring(db.learnedIds[qid]):gsub("%^", ""))))
   end
 end
@@ -737,7 +757,7 @@ local function OnAcceptConfirm(...)
   ER.join = nil -- one prompt, one yes
   ConfirmAcceptQuest()
   StaticPopup_Hide("QUEST_ACCEPT")
-  Print("Joined %s.", j.title)
+  Note("Joined %s.", j.title)
 end
 
 local function OnGossip()
@@ -798,6 +818,10 @@ f:SetScript("OnEvent", function(_, event, ...)
     char.raid = nil -- 0.13.0 dev key, default was on
     if char.inRaid == nil then char.inRaid = false end
     if char.pvp == nil then char.pvp = false end
+    -- announcements and broadcasts, all on by default
+    for _, k in ipairs({ "chatCheck", "chatStart", "alert", "checkSound", "chatInfo", "share" }) do
+      if char[k] == nil then char[k] = true end
+    end
     char.scale = char.scale or 1.25
     ER.db, ER.char = db, char
     pcall(C_ChatInfo.RegisterAddonMessagePrefix, ER.PREFIX)
@@ -856,7 +880,7 @@ C_Timer.NewTicker(1, function()
   local now, changed = GetTime(), false
   for _, s in ipairs(ER.Running()) do
     if now - s.t0 > ER.TIMEOUT then
-      Print("Party check for %s timed out.", s.title)
+      Note("Party check for %s timed out.", s.title)
       ER.Cancel(s)
     else
       for _, m in pairs(s.members) do

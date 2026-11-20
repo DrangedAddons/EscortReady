@@ -130,8 +130,16 @@ function ER.CreateDropdown(parent, width, options, getter, setter)
 end
 
 function ER.BuildSettings()
-  local p = CreateFrame("Frame")
-  p.name = "EscortReady"
+  -- the page scrolls: with the announcement options it's taller than the Options canvas
+  local outer = CreateFrame("Frame")
+  outer.name = "EscortReady"
+  local scroll = CreateFrame("ScrollFrame", nil, outer, "UIPanelScrollFrameTemplate")
+  scroll:SetPoint("TOPLEFT", 0, -4)
+  scroll:SetPoint("BOTTOMRIGHT", -28, 4)
+  local p = CreateFrame("Frame", nil, scroll)
+  p:SetSize(600, 980)
+  scroll:SetScrollChild(p)
+  scroll:SetScript("OnSizeChanged", function(self, w) if w and w > 0 then p:SetWidth(w) end end)
 
   local title = p:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   title:SetPoint("TOPLEFT", 16, -16)
@@ -155,8 +163,30 @@ function ER.BuildSettings()
   local c3 = Check(p, c2, "Pick the NPC's start line after accepting",
     "Some of these quests need you to talk to the NPC again. If exactly one line looks like \"I'm ready\" or \"Let's go\", it's picked for you.", "autoGossip")
 
+  -- what EscortReady says and sends; all on by default
+  local ann = p:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+  ann:SetPoint("TOPLEFT", c3, "BOTTOMLEFT", 0, -20)
+  ann:SetText("Announcements")
+  local annNote = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+  annNote:SetPoint("TOPLEFT", ann, "BOTTOMLEFT", 0, -4)
+  annNote:SetWidth(560)
+  annNote:SetJustifyH("LEFT")
+  annNote:SetText("What EscortReady says and sends. Party chat lines only ever go out when someone in the group doesn't have the addon.")
+  local a1 = Check(p, annNote, "Party chat: ready check",
+    "When you press Ready check, one party line names the quest and asks players without the addon to hand in or pick it up first, then hit Ready.", "chatCheck")
+  local a2 = Check(p, a1, "Party chat: quest started",
+    "When your check starts the quest (everyone ready, or Start anyway), one party line says so, for players without the addon.", "chatStart")
+  local a3 = Check(p, a2, "Alert me when a quest starts without me",
+    "A raid-warning banner, its sound and a taskbar flash when someone uses Start anyway while you weren't ready.", "alert")
+  local a4 = Check(p, a3, "Sound and taskbar flash when a check arrives",
+    "The ready-check sound and a taskbar flash when a party member's check opens on your screen.", "checkSound")
+  local a5 = Check(p, a4, "EscortReady messages in my chat",
+    "Chat lines like held back, joined, cancelled, timed out and learned. Errors and replies to /er commands always show.", "chatInfo")
+  local a6 = Check(p, a5, "Share found quests with the group",
+    "When you learn a party event quest (from the join prompt or its quest ID), tell group members with the addon so their copy learns it too.", "share")
+
   local scale = CreateFrame("Slider", "EscortReadyScale", p, "OptionsSliderTemplate")
-  scale:SetPoint("TOPLEFT", c3, "BOTTOMLEFT", 4, -28)
+  scale:SetPoint("TOPLEFT", a6, "BOTTOMLEFT", 4, -28)
   scale:SetWidth(240)
   scale:SetMinMaxValues(0.5, 3)
   scale:SetValueStep(0.05)
@@ -225,11 +255,11 @@ function ER.BuildSettings()
   ex:SetScript("OnClick", function() ER.ShowExport() end)
 
   if Settings and Settings.RegisterCanvasLayoutCategory then
-    category = Settings.RegisterCanvasLayoutCategory(p, "EscortReady")
+    category = Settings.RegisterCanvasLayoutCategory(outer, "EscortReady")
     Settings.RegisterAddOnCategory(category)
   elseif InterfaceOptions_AddCategory then
-    InterfaceOptions_AddCategory(p)
-    category = p
+    InterfaceOptions_AddCategory(outer)
+    category = outer
   end
 end
 

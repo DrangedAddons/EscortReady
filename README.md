@@ -45,7 +45,7 @@ not 12345 Some Quest        you marked it with /er not (a wrong catch)
 
 ## Options
 
-Esc > Options > AddOns > EscortReady, or `/er config`. Per character: the gate, Enable in Raids and Enable in Battlegrounds (both off by default), auto-join, the start line, window size. With EllesmereUI loaded the window follows its look and font (Window look dropdown).
+Esc > Options > AddOns > EscortReady, or `/er config`. Per character: the gate, Enable in Raids and Enable in Battlegrounds (both off by default), which announcements it makes (party chat lines, alerts, sounds, chat messages, sharing found quests; all on by default), auto-join, the start line, window size. With EllesmereUI loaded the window follows its look and font (Window look dropdown).
 
 The Testing buttons open the window without a quest. As the starter in a group, a [Test] check goes to the party like a ready check; solo, made-up members tick ready over a few seconds. Each press adds another check (up to four), to see the panels side by side. No quest is ever accepted by a test.
 

@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.14.0
+
+- New **Announcements** options (per character, all on by default) to choose exactly what EscortReady says and sends:
+  - **Party chat: ready check**: the party line posted with the game's ready check.
+  - **Party chat: quest started**: the party line when your check starts the quest.
+  - **Alert me when a quest starts without me**: the raid-warning banner, sound and taskbar flash.
+  - **Sound and taskbar flash when a check arrives**.
+  - **EscortReady messages in my chat**: held back, joined, cancelled, timed out, learned and the like. Errors and replies to /er commands always show.
+  - **Share found quests with the group**.
+- Party chat lines still only go out when someone in the group doesn't have the addon.
+- The options page scrolls now.
+
 ## 0.13.0
 
 - Raids and battlegrounds are no longer checked by default. A 40-player Alterac Valley raid was getting a ready check for The Battle of Alterac.
