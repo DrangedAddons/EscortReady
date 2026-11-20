@@ -10,7 +10,7 @@
   - **EscortReady messages in my chat**: held back, joined, cancelled, timed out, learned and the like. Errors and replies to /er commands always show.
   - **Share found quests with the group**.
 - Party chat lines still only go out when someone in the group doesn't have the addon.
-- The options page scrolls now.
+- The options page has a second column for them.
 
 ## 0.13.0
 

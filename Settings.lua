@@ -130,16 +130,11 @@ function ER.CreateDropdown(parent, width, options, getter, setter)
 end
 
 function ER.BuildSettings()
-  -- the page scrolls: with the announcement options it's taller than the Options canvas
-  local outer = CreateFrame("Frame")
-  outer.name = "EscortReady"
-  local scroll = CreateFrame("ScrollFrame", nil, outer, "UIPanelScrollFrameTemplate")
-  scroll:SetPoint("TOPLEFT", 0, -4)
-  scroll:SetPoint("BOTTOMRIGHT", -28, 4)
-  local p = CreateFrame("Frame", nil, scroll)
-  p:SetSize(600, 980)
-  scroll:SetScrollChild(p)
-  scroll:SetScript("OnSizeChanged", function(self, w) if w and w > 0 then p:SetWidth(w) end end)
+  -- One flat page, no scroll frame of its own: DrangedHub hosts this page, measures its
+  -- contents and scrolls it itself. Announcements sit in a second column so it fits the
+  -- game's Options canvas too.
+  local p = CreateFrame("Frame")
+  p.name = "EscortReady"
 
   local title = p:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   title:SetPoint("TOPLEFT", 16, -16)
@@ -165,13 +160,13 @@ function ER.BuildSettings()
 
   -- what EscortReady says and sends; all on by default
   local ann = p:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-  ann:SetPoint("TOPLEFT", c3, "BOTTOMLEFT", 0, -20)
+  ann:SetPoint("TOPLEFT", c1, "TOPLEFT", 340, -4)
   ann:SetText("Announcements")
   local annNote = p:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
   annNote:SetPoint("TOPLEFT", ann, "BOTTOMLEFT", 0, -4)
-  annNote:SetWidth(560)
+  annNote:SetWidth(320)
   annNote:SetJustifyH("LEFT")
-  annNote:SetText("What EscortReady says and sends. Party chat lines only ever go out when someone in the group doesn't have the addon.")
+  annNote:SetText("What EscortReady says and sends. Party chat lines only go out when someone in the group doesn't have the addon.")
   local a1 = Check(p, annNote, "Party chat: ready check",
     "When you press Ready check, one party line names the quest and asks players without the addon to hand in or pick it up first, then hit Ready.", "chatCheck")
   local a2 = Check(p, a1, "Party chat: quest started",
@@ -186,7 +181,7 @@ function ER.BuildSettings()
     "When you learn a party event quest (from the join prompt or its quest ID), tell group members with the addon so their copy learns it too.", "share")
 
   local scale = CreateFrame("Slider", "EscortReadyScale", p, "OptionsSliderTemplate")
-  scale:SetPoint("TOPLEFT", a6, "BOTTOMLEFT", 4, -28)
+  scale:SetPoint("TOPLEFT", c3, "BOTTOMLEFT", 4, -28)
   scale:SetWidth(240)
   scale:SetMinMaxValues(0.5, 3)
   scale:SetValueStep(0.05)
@@ -255,11 +250,11 @@ function ER.BuildSettings()
   ex:SetScript("OnClick", function() ER.ShowExport() end)
 
   if Settings and Settings.RegisterCanvasLayoutCategory then
-    category = Settings.RegisterCanvasLayoutCategory(outer, "EscortReady")
+    category = Settings.RegisterCanvasLayoutCategory(p, "EscortReady")
     Settings.RegisterAddOnCategory(category)
   elseif InterfaceOptions_AddCategory then
-    InterfaceOptions_AddCategory(outer)
-    category = outer
+    InterfaceOptions_AddCategory(p)
+    category = p
   end
 end
 
