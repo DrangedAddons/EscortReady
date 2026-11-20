@@ -5,6 +5,8 @@
 ## Version: 0.14.0
 ## OptionalDeps: Questie, QuestieDB, EllesmereUI
 ## X-DrangedAddons-Games: _forever_
+## X-DrangedHub-Page: EscortReady
+## X-DrangedHub-Open: /er config
 ## SavedVariables: EscortReadyDB
 ## SavedVariablesPerCharacter: EscortReadyCharDB
 ## IconTexture: Interface\AddOns\EscortReady\icon
